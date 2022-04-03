@@ -15,10 +15,10 @@ from datetime import datetime
 ### ------------------------------------------------- ###
 
 ### Choose the required initial conditions
-from initial_1 import *       # Ring
+# from initial_1 import *       # Ring
 # from initial_2 import *       # Periodic Band
 # from initial_3 import *       # Analytical
-# from initial_4 import *
+from initial_4 import *       # Gaussian
 
 ### Import LeXInt
 sys.path.insert(1, "./LeXInt/Python/Constant/")
@@ -105,14 +105,14 @@ class Integrate(initial_distribution):
         max_t = '{:1.2f}'.format(self.tmax)
         emax = '{:5.1e}'.format(self.error_tol)
         
-        direc_1 = os.path.expanduser("~/PJD/AniDiff Data Sets/Constant/Ring/" + str(integrator))
-        direc_2 = os.path.expanduser(direc_1 + "/Order_" + str(order) + "/N_" + str(n_x) + "_" + str(n_y) + "/T_" + str(max_t))
-        path = os.path.expanduser(direc_2 + "/dt_" + str(dt_value) + "_CFL/tol " + str(emax) + "/")
+        # direc_1 = os.path.expanduser("~/PJD/AniDiff Data Sets/Constant/Ring/" + str(integrator))
+        # direc_2 = os.path.expanduser(direc_1 + "/Order_" + str(order) + "/N_" + str(n_x) + "_" + str(n_y) + "/T_" + str(max_t))
+        # path = os.path.expanduser(direc_2 + "/dt_" + str(dt_value) + "_CFL/tol " + str(emax) + "/")
         
 
-        if os.path.exists(path):
-            shutil.rmtree(path)                                 # remove previous directory with same name
-        os.makedirs(path, 0o777)                                # create directory with access rights
+        # if os.path.exists(path):
+        #     shutil.rmtree(path)                                 # remove previous directory with same name
+        # os.makedirs(path, 0o777)                                # create directory with access rights
         
         dt_array = []                                           # Array - dt used
         cost_array = []                                         # Array - # of matrix-vector products
@@ -143,17 +143,17 @@ class Integrate(initial_distribution):
             ############# --------------------- ##############
 
             # ### Test plots
-            # plt.imshow(u.reshape(self.N_x, self.N_y), origin = 'lower', cmap = cm.plasma, 
-            #            extent = [self.xmin, self.xmax, self.ymin, self.ymax], aspect = 'equal')
+            plt.imshow(u.reshape(self.N_x, self.N_y), origin = 'lower', cmap = cm.plasma, 
+                       extent = [self.xmin, self.xmax, self.ymin, self.ymax], aspect = 'equal')
             
             # ax = plt.axes(projection = '3d')
             # ax.grid(False)
-            # ax.view_init(elev = 30, azim = 120)
+            # ax.view_init(elev = 30, azim = 60)
             # ax.plot_surface(self.X, self.Y, u.reshape(self.N_y, self.N_x), cmap = 'plasma', edgecolor = 'none')
             
-            # # plt.colorbar()
-            # plt.pause(self.dt/10)
-            # plt.clf()
+            # plt.colorbar()
+            plt.pause(self.dt)
+            plt.clf()
             
             ############# --------------------- ##############
             
@@ -190,19 +190,19 @@ class Integrate(initial_distribution):
         print(str(tol_time))
         
             
-        ### Write final data to files
-        file_final = open(path + "Final_data.txt", 'w+')
-        np.savetxt(file_final, u.reshape(self.N_y, self.N_x), fmt = '%.25f')
-        file_final.close()
+        # ### Write final data to files
+        # file_final = open(path + "Final_data.txt", 'w+')
+        # np.savetxt(file_final, u.reshape(self.N_y, self.N_x), fmt = '%.25f')
+        # file_final.close()
         
-        # file_movie.close()
+        # # file_movie.close()
         
-        ### Write simulation results to file
-        file_res = open(path + '/Results.txt', 'w+')
-        file_res.write("Time elapsed (secs): %s" % str(tol_time) + "\n" + "\n")
-        file_res.write("Number of matrix-vector products = %d" % np.sum(cost_array) + "\n" + "\n")
-        file_res.write("dt:" + "\n")
-        file_res.write(' '.join(map(str, dt_array)) % dt_array + "\n" + "\n")
-        file_res.close()
+        # ### Write simulation results to file
+        # file_res = open(path + '/Results.txt', 'w+')
+        # file_res.write("Time elapsed (secs): %s" % str(tol_time) + "\n" + "\n")
+        # file_res.write("Number of matrix-vector products = %d" % np.sum(cost_array) + "\n" + "\n")
+        # file_res.write("dt:" + "\n")
+        # file_res.write(' '.join(map(str, dt_array)) % dt_array + "\n" + "\n")
+        # file_res.close()
             
 ### ============================================================================ ###

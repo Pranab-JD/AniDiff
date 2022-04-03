@@ -13,18 +13,13 @@ from domain import Computational_Domain_2D
 ### ============================================================================ ###
 
 class initial_distribution(Computational_Domain_2D):
-    
-    def __init__(self, N_x, N_y, spatial_order, tmax, N_cfl, error_tol):
-        super().__init__(N_x, N_y, spatial_order, tmax, N_cfl, error_tol)
-        self.xmin = 0                              # Min value of X
-        self.ymin = 0                              # Min value of Y
         
     def initial_u(self):
                     
         eps = 0.05
         
-        ## Gaussian pulse (Isotropic)
-        u_init = (2*np.pi)**(-3/2)/(eps**2 + (2*self.D_xx))**(3/2) * np.exp(-(1/2) * ((self.X**2 + self.Y**2)/(eps**2 + (2*self.D_xx))))
+        ### Gaussian pulse (Hopkins 2017)
+        u_init = (2*np.pi)**(-3/2)/eps**3 * np.exp(-0.5 * ((self.X**2 + self.Y**2)/eps**2))
         
         return u_init
         

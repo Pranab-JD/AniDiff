@@ -26,9 +26,10 @@ spatial_order = 2
 tmax = 5.0
 # n_cfl = 1000
 
-cfl_list = [4000, 3000, 2000, 1000]
-N_list = [2**8]
+cfl_list = [100]
+N_list = [2**7]
 tol_list = [1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10, 1e-11, 1e-12]
+tol_list = [1e-8]
 
 for n_cfl in cfl_list:
     for N in N_list:

@@ -14,12 +14,9 @@ from domain import Computational_Domain_2D
 
 class initial_distribution(Computational_Domain_2D):
     
-    def __init__(self, N_x, N_y, spatial_order, tmax, N_cfl, error_tol):
-        super().__init__(N_x, N_y, spatial_order, tmax, N_cfl, error_tol)
-    
     def initial_u(self):
         
-        ## Constant diffusion on a periodic band
+        ## Constant diffusion on a periodic band (Crouseilles et al. 2015)
         radius = (self.X**2 + self.Y**2)**0.5
         u_init = np.zeros((self.N_x, self.N_y))
         

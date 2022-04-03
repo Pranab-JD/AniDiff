@@ -13,9 +13,6 @@ from domain import Computational_Domain_2D
 ### ============================================================================ ###
 
 class initial_distribution(Computational_Domain_2D):
-    
-    def __init__(self, N_x, N_y, spatial_order, tmax, N_cfl, error_tol):
-        super().__init__(N_x, N_y, spatial_order, tmax, N_cfl, error_tol)
         
     def initial_u(self):
         
