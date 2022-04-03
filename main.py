@@ -20,21 +20,33 @@ startTime = datetime.now()
 ### ============================================================================ ###
 
 ### Parameters
-N_x = 75
-N_y = 75
+# N_x = 2**7
+# N_y = 2**7
 spatial_order = 2
 tmax = 5.0
-error_tol = 1e-5
+# n_cfl = 1000
 
-### Object initialization
-run = Integrate(N_x, N_y, spatial_order, tmax, error_tol)
+cfl_list = [4000, 3000, 2000, 1000]
+N_list = [2**8]
+tol_list = [1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10, 1e-11, 1e-12]
 
-def main():
-    run.run_code(tmax)
-    
-if __name__ == "__main__":
-    main()
+for n_cfl in cfl_list:
+    for N in N_list:
+        for tol in tol_list:
+
+            ### Object initialization
+            run = Integrate(N, N, spatial_order, tmax, n_cfl, tol)
+
+            def main():
+                run.run_code(tmax)
+                
+            if __name__ == "__main__":
+                main()
     
 ### ============================================================================ ###
 
+print()
+print("==============================================")
+print()
 print('Total Time Elapsed = ', datetime.now() - startTime)
+print()

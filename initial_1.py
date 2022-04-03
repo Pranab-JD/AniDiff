@@ -14,21 +14,37 @@ from domain import Computational_Domain_2D
 
 class initial_distribution(Computational_Domain_2D):
     
-    def __init__(self, N_x, N_y, spatial_order, tmax, error_tol):
-        super().__init__(N_x, N_y, spatial_order, tmax, error_tol)
-        
-    def initialize_parameters(self):
-        super().initialize_parameters()
-        self.D_xx = 1.0
-        self.D_xy = 0.5
-        self.D_yx = 0.5
-        self.D_yy = 0.25
+    def __init__(self, N_x, N_y, spatial_order, tmax, N_cfl, error_tol):
+        super().__init__(N_x, N_y, spatial_order, tmax, N_cfl, error_tol)
         
     def initial_u(self):
         
-        ## Diffusion on a ring
-        u_init = 0.1 + 10 * np.exp(-((self.X - 0.6)**2 + self.Y**2)/0.02)
+        ### Ring
         
+        ### ==================================================== ###
+        
+        ### Crouseilles et al. 2015
+        u_init = 0.1 + 10*np.exp(-((self.X + 0.6)**2 + self.Y**2 )/(0.002))
+        
+        ### ==================================================== ###
+        
+        ### Sharma & Hammett 2011
+        # u_init = np.zeros((self.N_x, self.N_y))
+        # theta = np.zeros((self.N_x, self.N_y))
+        
+        # for ii in range(self.N_x):
+        #     for jj in range(self.N_y):
+        #         theta[ii, jj] = np.math.atan(self.Y[ii, jj]/self.X[ii, jj])    
+                    
+        # for ii in range(self.N_x):
+        #     for jj in range(self.N_y):
+        #         if ((0.5 < self.radius[ii, jj] < 0.7) and (-0.05026187426480691 < theta[ii, jj] < 0.05026187426480691)):
+        #             u_init[ii, jj] = 12
+        #         else:
+        #             u_init[ii, jj] = 0.1
+        
+        ### ==================================================== ###
+
         return u_init
-    
+        
 ### ============================================================================ ###

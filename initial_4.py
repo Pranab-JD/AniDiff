@@ -16,20 +16,16 @@ class initial_distribution(Computational_Domain_2D):
     
     def __init__(self, N_x, N_y, spatial_order, tmax, N_cfl, error_tol):
         super().__init__(N_x, N_y, spatial_order, tmax, N_cfl, error_tol)
-    
+        self.xmin = 0                              # Min value of X
+        self.ymin = 0                              # Min value of Y
+        
     def initial_u(self):
+                    
+        eps = 0.05
         
-        ## Constant diffusion on a periodic band
-        radius = (self.X**2 + self.Y**2)**0.5
-        u_init = np.zeros((self.N_x, self.N_y))
-        
-        for ii in range(self.N_x):
-            for jj in range(self.N_y):
-                if radius[ii, jj] < 2*np.pi/5:    
-                    u_init[ii, jj] = 1.0 + (3*np.exp(-2*radius[ii, jj]**2))
-                else:
-                    u_init[ii, jj] = 1.0
+        ## Gaussian pulse (Isotropic)
+        u_init = (2*np.pi)**(-3/2)/(eps**2 + (2*self.D_xx))**(3/2) * np.exp(-(1/2) * ((self.X**2 + self.Y**2)/(eps**2 + (2*self.D_xx))))
         
         return u_init
-    
+        
 ### ============================================================================ ###

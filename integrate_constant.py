@@ -10,28 +10,39 @@ import numpy as np
 import os, sys, shutil
 from matplotlib import cm
 import matplotlib.pyplot as plt
+from datetime import datetime
+
+### ------------------------------------------------- ###
 
 ### Choose the required initial conditions
-# from initial_1 import *
-from initial_2 import *
-# from initial_3 import *
+from initial_1 import *       # Ring
+# from initial_2 import *       # Periodic Band
+# from initial_3 import *       # Analytical
+# from initial_4 import *
 
 ### Import LeXInt
-sys.path.insert(1, "./LeXInt/Python/Adaptive/")
+sys.path.insert(1, "./LeXInt/Python/Constant/")
 sys.path.insert(1, "./LeXInt/Python/Constant/Explicit/")
-sys.path.insert(1, "./LeXInt/Python/Constant/EPIRK/")
+sys.path.insert(1, "./LeXInt/Python/Constant/Implicit/")
 sys.path.insert(1, "./LeXInt/Python/Constant/EXPRB/")
+# sys.path.insert(1, "./LeXInt/Python/Constant/EPIRK/")
 
 import Eigenvalues
 from Explicit import *
+from Implicit import *
 from EXPRB import *
-from EPIRK import *
+# from EPIRK import *
 
 ### ============================================================================ ###
     
 class Integrate(initial_distribution):   
     
     def RHS_function(self, u):
+        """
+            This function can be used directly for
+            explicit and exponential integrators.
+
+        """
         
         return self.A_dif.dot(u)
     
@@ -62,6 +73,10 @@ class Integrate(initial_distribution):
         elif integrator == "Cash_Karp":
             u_sol, num_rhs_calls = Cash_Karp(u, dt, self.RHS_function)
             return u_sol, num_rhs_calls
+        
+        elif integrator == "Crank_Nicolson":
+            u_sol, num_rhs_calls = Crank_Nicolson(u, dt, self.A_dif, tol)
+            return u_sol, num_rhs_calls
 
         elif integrator == "Rosenbrock_Euler":
             u_sol, num_rhs_calls = Rosenbrock_Euler(u, dt, self.RHS_function, c, Gamma, tol, 0)
@@ -81,11 +96,19 @@ class Integrate(initial_distribution):
         ### Choose the integrator
         integrator = "Matrix_exp"
         print("Integrator: ", integrator)
+        print()
         
         ### Create directory
-        dt_value = '{:5.1e}'.format(self.dt)
-        direc_1 = os.path.expanduser("~/PJD/AniDiff Data Sets/Test Order/" + str(integrator))
-        path = os.path.expanduser(direc_1 + "/dt " + str(dt_value) + "/")
+        dt_value = '{:2.0f}'.format(self.N_cfl)
+        order = '{:1.0f}'.format(self.spatial_order)
+        n_x = '{:2.0f}'.format(self.N_x); n_y = '{:2.0f}'.format(self.N_y)
+        max_t = '{:1.2f}'.format(self.tmax)
+        emax = '{:5.1e}'.format(self.error_tol)
+        
+        direc_1 = os.path.expanduser("~/PJD/AniDiff Data Sets/Constant/Ring/" + str(integrator))
+        direc_2 = os.path.expanduser(direc_1 + "/Order_" + str(order) + "/N_" + str(n_x) + "_" + str(n_y) + "/T_" + str(max_t))
+        path = os.path.expanduser(direc_2 + "/dt_" + str(dt_value) + "_CFL/tol " + str(emax) + "/")
+        
 
         if os.path.exists(path):
             shutil.rmtree(path)                                 # remove previous directory with same name
@@ -96,12 +119,43 @@ class Integrate(initial_distribution):
         
         time = 0                                                # Time elapsed
         u = self.initial_u().reshape(self.N_x * self.N_y)       # Reshape 2D into 1D
-        tol = 1e-5                                              # Tolerance for polynomial interpolation
+        
+        ### Write data for movies
+        # file_movie = open(path + "Movie_data.txt", 'w+')
+        # file_movie.write(' '.join(map(str, u)) % u + "\n" + "\n")
         
         ############## --------------------- ##############
         
+        ### Eigenvalues (Remains constant for linear equations)
+        eigen_min_dif = 0.0 
+        eigen_max_dif, eigen_imag_dif = Eigenvalues.Gershgorin(self.A_dif)      # Max real, imag eigen value
+        
+        ### Scaling and shifting factors
+        c = 0.5 * (eigen_max_dif + eigen_min_dif)
+        Gamma = 0.25 * (eigen_min_dif - eigen_max_dif)
+        
+        ### Start timer
+        tolTime = datetime.now()
+        
         ### Time loop ###
         while time < tmax:
+            
+            ############# --------------------- ##############
+
+            # ### Test plots
+            # plt.imshow(u.reshape(self.N_x, self.N_y), origin = 'lower', cmap = cm.plasma, 
+            #            extent = [self.xmin, self.xmax, self.ymin, self.ymax], aspect = 'equal')
+            
+            # ax = plt.axes(projection = '3d')
+            # ax.grid(False)
+            # ax.view_init(elev = 30, azim = 120)
+            # ax.plot_surface(self.X, self.Y, u.reshape(self.N_y, self.N_x), cmap = 'plasma', edgecolor = 'none')
+            
+            # # plt.colorbar()
+            # plt.pause(self.dt/10)
+            # plt.clf()
+            
+            ############# --------------------- ##############
             
             if time + self.dt >= tmax:
                 self.dt = tmax - time
@@ -113,15 +167,7 @@ class Integrate(initial_distribution):
             
             ############## --------------------- ##############
             
-            ### Eigenvalues
-            eigen_min_dif = 0.0 
-            eigen_max_dif, eigen_imag_dif = Eigenvalues.Gershgorin(self.A_dif)      # Max real, imag eigen value
-            
-            ### Scaling and shifting factors
-            c = 0.5 * (eigen_max_dif + eigen_min_dif)
-            Gamma = 0.25 * (eigen_min_dif - eigen_max_dif)
-
-            u_sol, num_rhs_calls = self.solve_constant(integrator, u, self.dt, c, Gamma, tol)
+            u_sol, num_rhs_calls = self.solve_constant(integrator, u, self.dt, c, Gamma, self.error_tol)
             
             ### Append data to arrays
             dt_array.append(self.dt)                            # List of dt at each time step
@@ -131,38 +177,32 @@ class Integrate(initial_distribution):
             time = time + self.dt
             u = u_sol.copy()
             
-            print("Time elapsed = ", time)
+            # print("Time elapsed = ", time)
+            # print("Mean value: ", np.max(u))
+            # print()
+            # print()
             
-            ############# --------------------- ##############
-
-            ### Test plots
-            # plt.imshow(u.reshape(self.N_y, self.N_x), origin = 'lower', cmap = cm.gist_heat, extent = [0, 1, 0, 1], aspect = 'equal')
+            ### Data for movie
+            # file_movie.write(' '.join(map(str, u)) % u + "\n" + "\n")
             
-            # # ax = plt.axes(projection = '3d')
-            # # ax.grid(False)
-            # # ax.view_init(elev = 30, azim = 120)
-            # # ax.plot_surface(self.X, self.Y, u.reshape(self.N_y, self.N_x), cmap = 'plasma', edgecolor = 'none')
-            
-            
-            # plt.pause(self.dt/10)
-            # plt.clf()
-            
-            ############# --------------------- ##############
+        ### Stop timer
+        tol_time = datetime.now() - tolTime
+        print(str(tol_time))
+        
             
         ### Write final data to files
         file_final = open(path + "Final_data.txt", 'w+')
         np.savetxt(file_final, u.reshape(self.N_y, self.N_x), fmt = '%.25f')
         file_final.close()
         
+        # file_movie.close()
+        
         ### Write simulation results to file
         file_res = open(path + '/Results.txt', 'w+')
+        file_res.write("Time elapsed (secs): %s" % str(tol_time) + "\n" + "\n")
         file_res.write("Number of matrix-vector products = %d" % np.sum(cost_array) + "\n" + "\n")
         file_res.write("dt:" + "\n")
         file_res.write(' '.join(map(str, dt_array)) % dt_array + "\n" + "\n")
         file_res.close()
-        
-        plt.imshow(u.reshape(self.N_y, self.N_x), origin = 'lower', cmap = cm.gist_heat, extent = [0, 1, 0, 1], aspect = 'equal')
-        plt.colorbar()
-        plt.savefig("../AniDiff Data Sets/anidiff_5.eps")
             
 ### ============================================================================ ###

@@ -10,11 +10,18 @@ import numpy as np
 import os, sys, shutil
 from matplotlib import cm
 import matplotlib.pyplot as plt
+from datetime import datetime
+
+startTime = datetime.now()
+
+### ------------------------------------------------- ###
 
 ### Choose the required initial conditions
-# from initial_1 import *
-from initial_2 import *
-# from initial_3 import *
+# from initial_1 import *       # Ring
+from initial_2 import *         # Periodic Band
+# from initial_3 import *       # Analytical
+# from initial_4 import *       # Ring
+# from initial_5 import *       # Gaussian Pulse
 
 ### Import LeXInt
 sys.path.insert(1, "./LeXInt/Python/Adaptive/")
@@ -23,7 +30,6 @@ sys.path.insert(1, "./LeXInt/Python/Adaptive/EPIRK/")
 sys.path.insert(1, "./LeXInt/Python/Adaptive/EXPRB/")
 
 import Eigenvalues
-import Leja_interpolation as Leja
 from Embedded_explicit import *
 from EXPRB import *
 from EPIRK import *
@@ -110,7 +116,7 @@ class Integrate(initial_distribution):
         
         method, Method_order = self.scheme(integrator)
             
-        if integrator == "RKF45":
+        if integrator == "RKF45" or integrator == "DOPRI54" or integrator == "Cash_Karp":
             
             u_low, u_high, rhs_calls_1 = method(u, dt, self.RHS_function)
             
@@ -119,12 +125,14 @@ class Integrate(initial_distribution):
             
             if error > tol:
                 
-                new_dt = dt * (tol/error)**(1/(Method_order + 1))
-                dt = 0.8 * new_dt                       # Safety factor
+                while error > tol:
+                
+                    new_dt = dt * (tol/error)**(1/(Method_order + 1))
+                    dt = 0.8 * new_dt                       # Safety factor
 
-                u_low, u_high, rhs_calls_2 = method(u, dt, self.RHS_function, c, Gamma, tol, 0)
-            
-                error = np.mean(abs(u_low - u_high))
+                    u_low, u_high, rhs_calls_2 = method(u, dt, self.RHS_function, c, Gamma, tol, 0)
+                
+                    error = np.mean(abs(u_low - u_high))
                 
             else:
                 
@@ -133,7 +141,7 @@ class Integrate(initial_distribution):
                 new_dt = dt * (tol/error)**(1/(Method_order + 1))
                 dt = 0.8 * new_dt                       # Safety factor
                 
-        # elif integrator == "Matrix_exp":
+            # print("Error = ", error)
             
             
         else:
@@ -167,14 +175,18 @@ class Integrate(initial_distribution):
     def run_code(self, tmax):
         
         ### Choose the integrator
-        integrator = "EPIRK5P1"
+        integrator = "DOPRI54"
+        print("Integrator: ", integrator)
+        print()
         
         ### Create directory
         n_x = '{:2.0f}'.format(self.N_x); n_y = '{:2.0f}'.format(self.N_y)
         emax = '{:5.1e}'.format(self.error_tol)
+        order = '{:1.0f}'.format(self.spatial_order)
+        max_t = '{:1.2f}'.format(self.tmax)
 
-        direc_1 = os.path.expanduser("~/PJD/AniDiff Data Sets/Adaptive/" + str(integrator))
-        direc_2 = os.path.expanduser(direc_1 + "/N_" + str(n_x) + "_" + str(n_y))
+        direc_1 = os.path.expanduser("~/PJD/AniDiff Data Sets/Adaptive/Band_Constant/" + str(integrator))
+        direc_2 = os.path.expanduser(direc_1 + "/Order_" + str(order) + "/N_" + str(n_x) + "_" + str(n_y) + "/T_" + str(max_t))
         path = os.path.expanduser(direc_2 + "/tol " + str(emax) + "/")
 
         if os.path.exists(path):
@@ -232,17 +244,21 @@ class Integrate(initial_distribution):
             ############# --------------------- ##############
 
             ### Test plots
-            plt.imshow(u.reshape(self.N_y, self.N_x), origin = 'lower', cmap = cm.gist_heat, extent = [0, 1, 0, 1], aspect = 'equal')
+            # plt.imshow(u.reshape(self.N_y, self.N_x), origin = 'lower', cmap = cm.gist_heat, extent = [0, 1, 0, 1], aspect = 'equal')
             
             # ax = plt.axes(projection = '3d')
             # ax.grid(False)
             # ax.view_init(elev = 30, azim = 120)
             # ax.plot_surface(self.X, self.Y, u.reshape(self.N_y, self.N_x), cmap = 'plasma', edgecolor = 'none')
             
-            plt.pause(self.dt/10)
-            plt.clf()
+            # plt.pause(self.dt/10)
+            # plt.clf()
             
         ############# --------------------- ##############
+        
+        ### Stop timer
+        simulation_time = datetime.now() - startTime
+        print(str(simulation_time))
             
         ### Write final data to files
         file_final = open(path + "Final_data.txt", 'w+')
@@ -251,6 +267,7 @@ class Integrate(initial_distribution):
         
         ### Write simulation results to file
         file_res = open(path + '/Results.txt', 'w+')
+        file_res.write("Time elapsed (secs): %s" % str(simulation_time) + "\n" + "\n")
         file_res.write("Number of matrix-vector products = %d" % np.sum(cost_array) + "\n" + "\n")
         file_res.write("dt:" + "\n")
         file_res.write(' '.join(map(str, dt_array)) % dt_array + "\n" + "\n")
@@ -260,8 +277,8 @@ class Integrate(initial_distribution):
         file_res.write(' '.join(map(str, eigen_array)) % eigen_array + "\n" + "\n")
         file_res.close()
         
-        plt.imshow(u.reshape(self.N_y, self.N_x), origin = 'lower', cmap = cm.gist_heat, extent = [0, 1, 0, 1], aspect = 'equal')
-        plt.colorbar()
-        plt.savefig("../AniDiff Data Sets/anidiff.eps")
+        # plt.imshow(u.reshape(self.N_y, self.N_x), origin = 'lower', cmap = cm.gist_heat, extent = [0, 1, 0, 1], aspect = 'equal')
+        # plt.colorbar()
+        # plt.savefig("../AniDiff Data Sets/anidiff.eps")
             
 ### ============================================================================ ###
