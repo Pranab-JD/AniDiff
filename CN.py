@@ -22,6 +22,6 @@ def GMRES(A, b, x0, tol):
 def Crank_Nicolson(u, dt, A, tol):
     
     rhs = u + 0.5*dt*A.dot(u)
-    u, iters = GMRES(identity(A.shape[0])-0.5*dt*A, rhs, u, tol)
+    u, iters = GMRES(identity(A.shape[0]) - 0.5*dt*A, rhs, u, tol)
     
     return u, iters + 1

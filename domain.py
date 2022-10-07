@@ -42,8 +42,6 @@ class Computational_Domain_2D:
         
         self.X, self.Y = np.meshgrid(self.X, self.Y)
         
-        # self.radius = (self.X**2 + self.Y**2)**0.5
-        
     ### Parameters  
     def initialize_parameters(self):
         self.dif_cfl = (self.dx**2 * self.dy**2)/(2*(self.dx**2 + self.dy**2))
@@ -58,10 +56,10 @@ class Computational_Domain_2D:
         print()
         
         ### Diffusion Coefficients
-        self.D_xx =  self.Y**2
-        # self.D_xy = -0.5
-        # self.D_yx = -0.5
-        self.D_yy =  self.X**2
+        self.D_xx = 1.0
+        self.D_xy = 0.5
+        self.D_yx = 0.5
+        self.D_yy = 1.0
 
     ### Operator matrices
     def initialize_matrices(self):
@@ -86,20 +84,20 @@ class Computational_Domain_2D:
             self.Dif_y[0, -1] = 1; self.Dif_y[-1, 0] = -1       # (0, -1), (N-1, 0)
         
             ### Space independent diffusion coefficients               
-            # self.A_dif = kron(identity(self.N_y), self.Dif_xx/self.dx**2) * self.D_xx \
-            #            + kron(self.Dif_yy/self.dy**2, identity(self.N_x)) * self.D_yy \
-            #            + kron(self.Dif_x, self.Dif_y) * self.D_xy/(4*self.dx*self.dy) \
-            #            + kron(self.Dif_y, self.Dif_x) * self.D_yx/(4*self.dx*self.dy)
+            self.A_dif = kron(identity(self.N_y), self.Dif_xx/self.dx**2) * self.D_xx \
+                       + kron(self.Dif_yy/self.dy**2, identity(self.N_x)) * self.D_yy \
+                       + kron(self.Dif_x, self.Dif_y) * self.D_xy/(4*self.dx*self.dy) \
+                       + kron(self.Dif_y, self.Dif_x) * self.D_yx/(4*self.dx*self.dy)
             
             ### Space dependent diffusion coefficients
-            self.Dif_x = self.Dif_x.multiply(self.X)
-            self.Dif_y = self.Dif_y.multiply(-self.Y)
+            # self.Dif_x = self.Dif_x.multiply(self.X)
+            # self.Dif_y = self.Dif_y.multiply(-self.Y)
 
-            # ### Merge X and Y to get a single matrix         
-            self.A_dif = kron(identity(self.N_y).multiply(self.D_xx.diagonal()), self.Dif_xx/self.dx**2) \
-                       + kron(self.Dif_yy/self.dy**2, identity(self.N_x).multiply(self.D_yy.diagonal())) \
-                       + kron(self.Dif_x, self.Dif_y)/(4*self.dx*self.dy) \
-                       + kron(self.Dif_y, self.Dif_x)/(4*self.dx*self.dy)
+            # # ### Merge X and Y to get a single matrix         
+            # self.A_dif = kron(identity(self.N_y).multiply(self.D_xx.diagonal()), self.Dif_xx/self.dx**2) \
+            #            + kron(self.Dif_yy/self.dy**2, identity(self.N_x).multiply(self.D_yy.diagonal())) \
+            #            + kron(self.Dif_x, self.Dif_y)/(4*self.dx*self.dy) \
+            #            + kron(self.Dif_y, self.Dif_x)/(4*self.dx*self.dy)
 
             
         ### ------------------------------------------------- ###

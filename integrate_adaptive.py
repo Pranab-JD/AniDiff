@@ -10,29 +10,29 @@ import numpy as np
 import os, sys, shutil
 from matplotlib import cm
 import matplotlib.pyplot as plt
-from datetime import datetime
+from scipy.sparse import lil_matrix, kron, identity, diags
 
-startTime = datetime.now()
+from datetime import datetime
 
 ### ------------------------------------------------- ###
 
 ### Choose the required initial conditions
 # from initial_1 import *       # Ring
-from initial_2 import *         # Periodic Band
+# from initial_2 import *       # Periodic Band
 # from initial_3 import *       # Analytical
-# from initial_4 import *       # Ring
-# from initial_5 import *       # Gaussian Pulse
+from initial_4 import *       # Gaussian
+
 
 ### Import LeXInt
 sys.path.insert(1, "./LeXInt/Python/Adaptive/")
 sys.path.insert(1, "./LeXInt/Python/Adaptive/Embedded_Explicit/")
-sys.path.insert(1, "./LeXInt/Python/Adaptive/EPIRK/")
 sys.path.insert(1, "./LeXInt/Python/Adaptive/EXPRB/")
+# sys.path.insert(1, "./LeXInt/Python/Constant/EPIRK/")
 
 import Eigenvalues
 from Embedded_explicit import *
 from EXPRB import *
-from EPIRK import *
+# from EPIRK import *
 
 ### ============================================================================ ###
     
@@ -44,12 +44,34 @@ class Integrate(initial_distribution):
     
     ### ------------------------------------------------- ###
     
+    def Laplacian(self):
+        
+        Laplacian_x = lil_matrix(diags(np.ones(self.N_x - 1), -1) + diags(-2*np.ones(self.N_x), 0) + diags(np.ones(self.N_x - 1), 1))
+        Laplacian_y = lil_matrix(diags(np.ones(self.N_y - 1), -1) + diags(-2*np.ones(self.N_y), 0) + diags(np.ones(self.N_y - 1), 1))
+        
+        Laplacian_x[0, -1] = 1; Laplacian_x[-1, 0] = 1
+        Laplacian_y[-1, 0] = 1; Laplacian_x[0, -1] = 1
+        
+        return kron(identity(self.N_y), Laplacian_x) + kron(Laplacian_y, identity(self.N_x))
+        
+    def RHS_Laplacian(self, u):
+        
+        eigen_B = 2
+        Laplacian_matrix = self.Laplacian()
+        penalty = eigen_B * Laplacian_matrix.dot(u)
+        
+        return penalty + (self.A_dif.dot(u) - penalty)
+    
+    ### ------------------------------------------------- ###
+    
     def scheme(self, integrator):
         
         if integrator == "Matrix_exp":
                     
             Method_order = 0
-            method = Leja.real_Leja_exp
+            method = real_Leja_exp
+            
+            return method, Method_order
         
         elif integrator == "EXPRB32":
                 
@@ -128,9 +150,9 @@ class Integrate(initial_distribution):
                 while error > tol:
                 
                     new_dt = dt * (tol/error)**(1/(Method_order + 1))
-                    dt = 0.8 * new_dt                       # Safety factor
+                    dt = 0.9 * new_dt                       # Safety factor
 
-                    u_low, u_high, rhs_calls_2 = method(u, dt, self.RHS_function, c, Gamma, tol, 0)
+                    u_low, u_high, rhs_calls_2 = method(u, dt, self.RHS_function)
                 
                     error = np.mean(abs(u_low - u_high))
                 
@@ -139,14 +161,14 @@ class Integrate(initial_distribution):
                 rhs_calls_2 = 0
                 
                 new_dt = dt * (tol/error)**(1/(Method_order + 1))
-                dt = 0.8 * new_dt                       # Safety factor
+                dt = 0.9 * new_dt                       # Safety factor
                 
             # print("Error = ", error)
             
             
         else:
             
-            u_low, u_high, rhs_calls_1 = method(u, dt, self.RHS_function, c, Gamma, tol, 0)
+            u_low, u_high, rhs_calls_1 = method(u, dt, self.RHS_Laplacian, c, Gamma, tol, 0)
             
             ### Error
             error = np.mean(abs(u_low - u_high))
@@ -154,9 +176,9 @@ class Integrate(initial_distribution):
             if error > tol:
                 
                 new_dt = dt * (tol/error)**(1/(Method_order + 1))
-                dt = 0.8 * new_dt                       # Safety factor
+                dt = 0.9 * new_dt                       # Safety factor
 
-                u_low, u_high, rhs_calls_2 = method(u, dt, self.RHS_function, c, Gamma, tol, 0)
+                u_low, u_high, rhs_calls_2 = method(u, dt, self.RHS_Laplacian, c, Gamma, tol, 0)
             
                 error = np.mean(abs(u_low - u_high))
                 
@@ -165,7 +187,7 @@ class Integrate(initial_distribution):
                 rhs_calls_2 = 0
                 
                 new_dt = dt * (tol/error)**(1/(Method_order + 1))
-                dt = 0.8 * new_dt                       # Safety factor
+                dt = 0.9 * new_dt                       # Safety factor
 
             
         return u_high, dt, rhs_calls_1 + rhs_calls_2
@@ -175,7 +197,7 @@ class Integrate(initial_distribution):
     def run_code(self, tmax):
         
         ### Choose the integrator
-        integrator = "DOPRI54"
+        integrator = "Cash_Karp"
         print("Integrator: ", integrator)
         print()
         
@@ -185,7 +207,7 @@ class Integrate(initial_distribution):
         order = '{:1.0f}'.format(self.spatial_order)
         max_t = '{:1.2f}'.format(self.tmax)
 
-        direc_1 = os.path.expanduser("~/PJD/AniDiff Data Sets/Adaptive/Band_Constant/" + str(integrator))
+        direc_1 = os.path.expanduser("~/PJD/AniDiff Data Sets/Adaptive/Gaussian/" + str(integrator))
         direc_2 = os.path.expanduser(direc_1 + "/Order_" + str(order) + "/N_" + str(n_x) + "_" + str(n_y) + "/T_" + str(max_t))
         path = os.path.expanduser(direc_2 + "/tol " + str(emax) + "/")
 
@@ -203,8 +225,36 @@ class Integrate(initial_distribution):
         
         ############## --------------------- ##############
         
+        ### Eigenvalues (Remains constant for linear equations)
+        eigen_min_dif = 0.0 
+        eigen_max_dif, eigen_imag_dif = Eigenvalues.Gershgorin(self.A_dif)      # Max real, imag eigen value
+        
+        ### Scaling and shifting factors
+        c = 0.5 * (eigen_max_dif + eigen_min_dif)
+        Gamma = 0.25 * (eigen_min_dif - eigen_max_dif)
+        
+        ### Start timer
+        tolTime = datetime.now()
+        
         ### Time loop ###
         while time < tmax:
+            
+            ############# --------------------- ##############
+
+            ### Test plots
+            # plt.imshow(u.reshape(self.N_x, self.N_y), origin = 'lower', cmap = cm.plasma, 
+            #            extent = [self.xmin, self.xmax, self.ymin, self.ymax], aspect = 'equal')
+            
+            # # ax = plt.axes(projection = '3d')
+            # # ax.grid(False)
+            # # ax.view_init(elev = 30, azim = 60)
+            # # ax.plot_surface(self.X, self.Y, u.reshape(self.N_y, self.N_x), cmap = 'plasma', edgecolor = 'none')
+            
+            # # plt.colorbar()
+            # plt.pause(self.dt)
+            # plt.clf()
+            
+            ############# --------------------- ##############
             
             if time + self.dt >= tmax:
                 self.dt = tmax - time
@@ -215,14 +265,6 @@ class Integrate(initial_distribution):
                 print("Mean value: ", np.mean(u))
             
             ############## --------------------- ##############
-            
-            ### Eigenvalues
-            eigen_min_dif = 0.0 
-            eigen_max_dif, eigen_imag_dif = Eigenvalues.Gershgorin(self.A_dif)      # Max real, imag eigen value
-            
-            ### Scaling and shifting factors
-            c = 0.5 * (eigen_max_dif + eigen_min_dif)
-            Gamma = 0.25 * (eigen_min_dif - eigen_max_dif)
 
             u_sol, new_dt, num_rhs_calls = self.solve_adaptive(integrator, u, self.dt, c, Gamma, self.error_tol)
             
@@ -232,33 +274,20 @@ class Integrate(initial_distribution):
             cost_array.append(num_rhs_calls)                    # List of matrix-vector products
             eigen_array.append(eigen_max_dif)                   # List of eigenvalues
 
+            # print("Time: ", time)
             # print("dt :", self.dt)
-            # print("Max eigenvalue :", eigen_max_dif)
-            # print("Cost :", num_rhs_calls)
+            # print()
             
             ### Update variables
             time = time + self.dt
             u = u_sol.copy()
             self.dt = new_dt
             
-            ############# --------------------- ##############
-
-            ### Test plots
-            # plt.imshow(u.reshape(self.N_y, self.N_x), origin = 'lower', cmap = cm.gist_heat, extent = [0, 1, 0, 1], aspect = 'equal')
-            
-            # ax = plt.axes(projection = '3d')
-            # ax.grid(False)
-            # ax.view_init(elev = 30, azim = 120)
-            # ax.plot_surface(self.X, self.Y, u.reshape(self.N_y, self.N_x), cmap = 'plasma', edgecolor = 'none')
-            
-            # plt.pause(self.dt/10)
-            # plt.clf()
-            
         ############# --------------------- ##############
         
         ### Stop timer
-        simulation_time = datetime.now() - startTime
-        print(str(simulation_time))
+        tol_time = datetime.now() - tolTime
+        print(str(tol_time))
             
         ### Write final data to files
         file_final = open(path + "Final_data.txt", 'w+')
@@ -267,7 +296,7 @@ class Integrate(initial_distribution):
         
         ### Write simulation results to file
         file_res = open(path + '/Results.txt', 'w+')
-        file_res.write("Time elapsed (secs): %s" % str(simulation_time) + "\n" + "\n")
+        file_res.write("Time elapsed (secs): %s" % str(tol_time) + "\n" + "\n")
         file_res.write("Number of matrix-vector products = %d" % np.sum(cost_array) + "\n" + "\n")
         file_res.write("dt:" + "\n")
         file_res.write(' '.join(map(str, dt_array)) % dt_array + "\n" + "\n")
@@ -276,9 +305,5 @@ class Integrate(initial_distribution):
         file_res.write("Eigenvalues:" + "\n")
         file_res.write(' '.join(map(str, eigen_array)) % eigen_array + "\n" + "\n")
         file_res.close()
-        
-        # plt.imshow(u.reshape(self.N_y, self.N_x), origin = 'lower', cmap = cm.gist_heat, extent = [0, 1, 0, 1], aspect = 'equal')
-        # plt.colorbar()
-        # plt.savefig("../AniDiff Data Sets/anidiff.eps")
             
 ### ============================================================================ ###
