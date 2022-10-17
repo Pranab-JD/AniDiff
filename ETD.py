@@ -18,8 +18,8 @@ def ETD1(u, dt, Linear, RHS, c, Gamma, Leja_X, tol):
 
     u_linear, rhs_exp = real_Leja_exp(u, dt, Linear, c, Gamma, Leja_X, tol)
     
-    F_u = (RHS(u) - Linear(u)) * dt
-    u_nonlin, rhs_phi = real_Leja_phi(u, dt, RHS, F_u, c, Gamma, Leja_X, phi_1, tol)
+    F_u = (RHS(u) - Linear(u))*dt
+    u_nonlin, rhs_phi = real_Leja_phi(u, dt, Linear, F_u, c, Gamma, Leja_X, phi_1, tol)
     
     u_etd1 = u_linear + u_nonlin
     

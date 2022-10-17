@@ -16,9 +16,7 @@ class counter:
         self.count = self.count + 1
 
 def GMRES(A, b, x0, tol):
-    
     c = counter()
-    
     return linalg.gmres(A, b, callback = c.incr, tol = tol)[0], c.count
 
 def ARK2(u, dt, A, Laplacian, tol):
@@ -35,7 +33,7 @@ def ARK2(u, dt, A, Laplacian, tol):
 def ARK4(u, dt, A, Laplacian, tol):
     
     N = A.shape[0]
-    eigen_B = 10
+    eigen_B = 10                    # Small value of penalisation parameter leads to instability in ARK4
     Laplacian_matrix = Laplacian()
     
     U2, c2 = GMRES(identity(N) - 0.5*eigen_B*dt*Laplacian_matrix, u + dt*(-1/2*eigen_B*Laplacian_matrix.dot(u) + 1/3*A.dot(u)), u, tol)

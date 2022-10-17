@@ -59,7 +59,7 @@ class Computational_Domain_2D:
         self.D_xx = 1.0
         self.D_xy = 0.5
         self.D_yx = 0.5
-        self.D_yy = 1.0
+        self.D_yy = 0.25
 
     ### Operator matrices
     def initialize_matrices(self):
@@ -93,7 +93,7 @@ class Computational_Domain_2D:
             # self.Dif_x = self.Dif_x.multiply(self.X)
             # self.Dif_y = self.Dif_y.multiply(-self.Y)
 
-            # # ### Merge X and Y to get a single matrix         
+            # ### Merge X and Y to get a single matrix         
             # self.A_dif = kron(identity(self.N_y).multiply(self.D_xx.diagonal()), self.Dif_xx/self.dx**2) \
             #            + kron(self.Dif_yy/self.dy**2, identity(self.N_x).multiply(self.D_yy.diagonal())) \
             #            + kron(self.Dif_x, self.Dif_y)/(4*self.dx*self.dy) \

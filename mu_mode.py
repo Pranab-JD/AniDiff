@@ -21,7 +21,7 @@ def mu_mode(U, dt, A_xx, A_yy, D_xx, D_yy, dx, dy):
     
     U_test = U.reshape(N_x, N_y)
 
-    exp_Axx = linalg.expm(D_xx * A_xx/dx**2 * dt)
+    exp_Axx = linalg.expm(A_xx/dx**2 * D_xx * dt)
     exp_Ayy = linalg.expm(A_yy/dy**2 * D_yy * dt)
     
     U_sol = exp_Axx.dot(exp_Ayy.dot(U_test).transpose()).transpose()
