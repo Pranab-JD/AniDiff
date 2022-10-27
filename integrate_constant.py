@@ -35,6 +35,7 @@ from RK import *
 from CN import *
 from ARK import *
 from mu_mode import *
+from mu_mode_Leja import *
 from kiops import *
 
 ### ============================================================================ ###
@@ -73,7 +74,7 @@ class Integrate(initial_distribution):
     
     def Linear(self, u):
         
-        eigen_B = 3
+        eigen_B = 2.0
         Laplacian_matrix = self.Laplacian()
         
         return eigen_B * Laplacian_matrix.dot(u)
@@ -93,9 +94,13 @@ class Integrate(initial_distribution):
             return u_sol, stats
         
         elif integrator == "mu_mode":
-            u_sol = mu_mode(u, dt, self.Dif_xx, self.Dif_yy, \
-                                   self.D_xx, self.D_yy, self.dx, self.dy)
+            u_sol = mu_mode(u, dt, 0, self.Dif_xx, self.Dif_yy, self.D_xx, self.D_yy, self.dx, self.dy)
             return u_sol, 0
+        
+        elif integrator == "mu_mode_Leja":
+            u_sol, num_rhs_calls = mu_mode_Leja(u, dt, self.Dif_xx, self.Dif_yy, self.Dif_x,self.Dif_y, \
+                                self.D_xx, self.D_yy, self.D_xy, self.D_yx, self.dx, self.dy, Leja_X, tol)
+            return u_sol, num_rhs_calls
         
         elif integrator == "RK2":
             u_sol, num_rhs_calls = RK2(self.RHS_function, u, dt)
@@ -122,11 +127,13 @@ class Integrate(initial_distribution):
             return u_sol, num_rhs_calls
         
         elif integrator == "ETD1":
-            u_sol, num_rhs_calls = ETD1(u, dt, self.Linear, self.RHS_function, c, Gamma, Leja_X, tol)
+            u_sol, num_rhs_calls = ETD1(u, dt, 2.0, self.Dif_xx, self.Dif_yy, self.D_xx, self.D_yy, self.dx, self.dy, \
+                                        self.Linear, self.RHS_function, c, Gamma, Leja_X, tol)
             return u_sol, num_rhs_calls
         
         elif integrator == "ETDRK2":
-            u_sol, num_rhs_calls = ETDRK2(u, dt, self.Linear, self.RHS_function, c, Gamma, Leja_X, tol)
+            u_sol, num_rhs_calls = ETDRK2(u, dt, 2.0, self.Dif_xx, self.Dif_yy, self.D_xx, self.D_yy, self.dx, self.dy, \
+                                        self.Linear, self.RHS_function, c, Gamma, Leja_X, tol)
             return u_sol, num_rhs_calls
  
         else:
@@ -137,7 +144,7 @@ class Integrate(initial_distribution):
     def run_code(self, tmax):
         
         ### Choose the integrator
-        integrator = "ARK4"
+        integrator = "ETDRK2"
         print("Integrator: ", integrator)
         print()
         
@@ -161,7 +168,7 @@ class Integrate(initial_distribution):
         
         ### Eigenvalues (Remains constant for linear equations)
         eigen_min_dif = 0.0
-        eigen_max_dif, eigen_imag_dif = Gershgorin(self.A_dif)      # Max real, imag eigenvalue
+        eigen_max_dif, eigen_imag_dif = Gershgorin(2.0*self.Laplacian())      # Max real, imag eigenvalue
         
         ### Scaling and shifting factors
         c = 0.5 * (eigen_max_dif + eigen_min_dif)
@@ -186,7 +193,7 @@ class Integrate(initial_distribution):
             # # ax.view_init(elev = 30, azim = 60)
             # # ax.plot_surface(self.X, self.Y, u.reshape(self.N_y, self.N_x), cmap = 'plasma', edgecolor = 'none')
             
-            # plt.pause(1)
+            # plt.pause(self.dt)
             # plt.clf()
             
             ############# --------------------- ##############
