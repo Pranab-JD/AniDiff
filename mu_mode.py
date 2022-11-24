@@ -7,15 +7,12 @@ Created on Mon Aug 22 17:55 2022
 import numpy as np
 from scipy.sparse import kron, identity, linalg
 
-def mu_mode(U, dt, eigen_B, A_xx, A_yy, D_xx, D_yy, dx, dy):
+def mu_mode(U, exp_Axx, exp_Ayy):
 
-    N_x = np.shape(A_xx)[0]
-    N_y = np.shape(A_yy)[0]
+    N_x = np.shape(exp_Axx)[0]
+    N_y = np.shape(exp_Ayy)[0]
 
     U_test = U.reshape(N_x, N_y)
-
-    exp_Axx = linalg.expm(A_xx/dx**2 * eigen_B * dt)
-    exp_Ayy = linalg.expm(A_yy/dy**2 * eigen_B * dt)
 
     U_sol = exp_Axx.dot(exp_Ayy.dot(U_test).transpose()).transpose()
 

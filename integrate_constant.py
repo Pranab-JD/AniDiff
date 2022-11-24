@@ -18,9 +18,9 @@ from datetime import datetime
 
 ### Choose the required initial conditions
 # from initial_1 import *       # Ring
-from initial_2 import *       # Band
+# from initial_2 import *       # Band
 # from initial_3 import *       # Analytical
-# from initial_4 import *       # Gaussian
+from initial_4 import *       # Gaussian
 
 
 ### Import LeXInt
@@ -29,14 +29,14 @@ sys.path.insert(1, "./LeXInt/Python/Constant/")
 
 from Eigenvalues import *
 from real_Leja_exp import *
-from ETD import *
+from Divided_Difference import *
 
+from ETD import *
 from RK import *
 from CN import *
 from ARK import *
 from mu_mode import *
-from mu_mode_Leja import *
-from kiops import *
+# from kiops import *
 
 ### ============================================================================ ###
     
@@ -74,33 +74,29 @@ class Integrate(initial_distribution):
     
     def Linear(self, u):
         
-        eigen_B = 2.0
+        eigen_B = 3
         Laplacian_matrix = self.Laplacian()
         
         return eigen_B * Laplacian_matrix.dot(u)
     
     ### ------------------------------------------------- ###
     
-    def solve_constant(self, integrator, u, dt, c, Gamma, Leja_X, tol):
+    def solve_constant(self, integrator, u, dt, c, Gamma, Leja_X, tol, coeffs, exp_Axx, exp_Ayy):
         
         if integrator == "Leja":
-            u_sol, num_rhs_calls = real_Leja_exp(u, dt, self.RHS_function, c, Gamma, Leja_X, tol)
+            
+            u_sol, num_rhs_calls = real_Leja_exp(u, dt, self.RHS_function, c, Gamma, Leja_X, tol, coeffs)
             return u_sol, num_rhs_calls
         
-        if integrator == "Kiops":
+        elif integrator == "Kiops":
             zeroVec = np.zeros(np.shape(u))
             
             u_sol, num_rhs_calls = kiops([1], self.RHS_function_kiops, np.row_stack((u, zeroVec)), tol, task1=True)
             return u_sol, stats
         
         elif integrator == "mu_mode":
-            u_sol = mu_mode(u, dt, 0, self.Dif_xx, self.Dif_yy, self.D_xx, self.D_yy, self.dx, self.dy)
+            u_sol = mu_mode(u, exp_Axx, exp_Ayy)
             return u_sol, 0
-        
-        elif integrator == "mu_mode_Leja":
-            u_sol, num_rhs_calls = mu_mode_Leja(u, dt, self.Dif_xx, self.Dif_yy, self.Dif_x,self.Dif_y, \
-                                self.D_xx, self.D_yy, self.D_xy, self.D_yx, self.dx, self.dy, Leja_X, tol)
-            return u_sol, num_rhs_calls
         
         elif integrator == "RK2":
             u_sol, num_rhs_calls = RK2(self.RHS_function, u, dt)
@@ -127,13 +123,11 @@ class Integrate(initial_distribution):
             return u_sol, num_rhs_calls
         
         elif integrator == "ETD1":
-            u_sol, num_rhs_calls = ETD1(u, dt, 2.0, self.Dif_xx, self.Dif_yy, self.D_xx, self.D_yy, self.dx, self.dy, \
-                                        self.Linear, self.RHS_function, c, Gamma, Leja_X, tol)
+            u_sol, num_rhs_calls = ETD1(u, dt, self.Linear, self.RHS_function, c, Gamma, Leja_X, tol)
             return u_sol, num_rhs_calls
         
         elif integrator == "ETDRK2":
-            u_sol, num_rhs_calls = ETDRK2(u, dt, 2.0, self.Dif_xx, self.Dif_yy, self.D_xx, self.D_yy, self.dx, self.dy, \
-                                        self.Linear, self.RHS_function, c, Gamma, Leja_X, tol)
+            u_sol, num_rhs_calls = ETDRK2(u, dt, self.Linear, self.RHS_function, c, Gamma, Leja_X, tol)
             return u_sol, num_rhs_calls
  
         else:
@@ -144,7 +138,7 @@ class Integrate(initial_distribution):
     def run_code(self, tmax):
         
         ### Choose the integrator
-        integrator = "ETDRK2"
+        integrator = "Leja"
         print("Integrator: ", integrator)
         print()
         
@@ -164,11 +158,11 @@ class Integrate(initial_distribution):
         
         ### Read Leja points
         Leja_X = np.loadtxt("Leja_10000.txt")
-        Leja_X = Leja_X[0:1000]
+        # Leja_X = Leja_X[0:1000]
         
         ### Eigenvalues (Remains constant for linear equations)
         eigen_min_dif = 0.0
-        eigen_max_dif, eigen_imag_dif = Gershgorin(2.0*self.Laplacian())      # Max real, imag eigenvalue
+        eigen_max_dif, eigen_imag_dif = Gershgorin(self.A_dif)      # Max real, imag eigenvalue
         
         ### Scaling and shifting factors
         c = 0.5 * (eigen_max_dif + eigen_min_dif)
@@ -193,7 +187,7 @@ class Integrate(initial_distribution):
             # # ax.view_init(elev = 30, azim = 60)
             # # ax.plot_surface(self.X, self.Y, u.reshape(self.N_y, self.N_x), cmap = 'plasma', edgecolor = 'none')
             
-            # plt.pause(self.dt)
+            # plt.pause(1)
             # plt.clf()
             
             ############# --------------------- ##############
@@ -208,7 +202,29 @@ class Integrate(initial_distribution):
             
             ############## --------------------- ##############
             
-            u_sol, num_rhs_calls = self.solve_constant(integrator, u, self.dt, c, Gamma, Leja_X, self.error_tol)
+            if time_steps == 0 or self.dt != dt_array[0]:
+                
+                if integrator == "mu_mode":
+                    
+                    exp_Axx = linalg.expm(self.Dif_xx/self.dx**2 * self.D_xx * self.dt)
+                    exp_Ayy = linalg.expm(self.Dif_yy/self.dy**2 * self.D_yy * self.dt)
+                
+                if integrator == "Leja":
+                    
+                    ### Matrix exponential (scaled and shifted)
+                    matrix_exponential = np.exp((c + Gamma*Leja_X) * self.dt)
+
+                    ### Compute polynomial coefficients
+                    coeffs = Divided_Difference(Leja_X, matrix_exponential) 
+                    
+                    exp_Axx = 0; exp_Ayy = 0
+                    
+            else:
+                exp_Axx = 0; exp_Ayy = 0
+                coeffs == 0
+                    
+            ### Call integrator function
+            u_sol, num_rhs_calls = self.solve_constant(integrator, u, self.dt, c, Gamma, Leja_X, self.error_tol, coeffs, exp_Axx, exp_Ayy)
             
             ### Append data to arrays
             dt_array.append(self.dt)                            # List of dt at each time step
@@ -247,14 +263,14 @@ class Integrate(initial_distribution):
         print("# time steps : ", time_steps)
         # print("Max value: ", np.max(u))
         
-        ### Create directory
+        # ### Create directory
         dt_value = '{:2.0f}'.format(self.N_cfl)
         order = '{:1.0f}'.format(self.spatial_order)
         n_x = '{:2.0f}'.format(self.N_x); n_y = '{:2.0f}'.format(self.N_y)
         max_t = '{:1.2f}'.format(self.tmax)
         emax = '{:5.1e}'.format(self.error_tol)
         
-        direc_1 = os.path.expanduser("~/PrJD/AniDiff Data Sets/Constant/Band/" + str(integrator))
+        direc_1 = os.path.expanduser("~/PrJD/AniDiff Data Sets/Constant/Gaussian/" + str(integrator))
         direc_2 = os.path.expanduser(direc_1 + "/Order_" + str(order) + "/N_" + str(n_x) + "/T_" + str(max_t))
         path = os.path.expanduser(direc_2 + "/dt_" + str(dt_value) + "_CFL/tol " + str(emax) + "/")
         

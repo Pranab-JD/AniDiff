@@ -57,9 +57,9 @@ class Computational_Domain_2D:
         
         ### Diffusion Coefficients
         self.D_xx = 1.0
-        self.D_xy = 0.5
-        self.D_yx = 0.5
-        self.D_yy = 0.25
+        self.D_xy = 0.0
+        self.D_yx = 0.0
+        self.D_yy = 0.0
 
     ### Operator matrices
     def initialize_matrices(self):
