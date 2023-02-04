@@ -21,14 +21,20 @@ startTime = datetime.now()
 
 ### Parameters
 spatial_order = 2
-tmax_list = [0.02, 0.05, 1.00]
-N_list = [2**6, 2**7, 2**8, 2**9]
+tmax_list = [10.00]
+N_list = [2**8]
+# N_list = [2**8]
 
-cfl_list = [1000, 1000000]
+cfl_list = [10]
 # cfl_list = [10]
 
-tol_list = [1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10, 1e-11, 1e-12]
-# tol_list = [1e-14]
+# tol_list = [1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7]
+# tol_list = [1e-12, 1e-11, 1e-10, 1e-9, 1e-8]
+
+# tol_list = [1e-12, 1e-2]
+# tol_list = [1e-9, 1e-8, 1e-7]
+# tol_list = [1e-10, 1e-4, 1e-6]
+tol_list = [1e-10]
 
 for N in N_list:
     for tmax in tmax_list:
@@ -46,10 +52,10 @@ for N in N_list:
 
 
 ### Test
-# run = Integrate(2**8, 2**8, 2, 1.00, 1000, 1e-12)
+# run = Integrate(2**8, 2**8, 2, 5.75, 1000000, 1e-12)
 
 # def main():
-#     run.run_code(1.00)
+#     run.run_code(5.75)
     
 # if __name__ == "__main__":
 #     main()
