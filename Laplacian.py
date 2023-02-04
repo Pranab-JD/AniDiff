@@ -2,6 +2,8 @@
 Created on Sun Nov 27 22:03:10 2022
 
 @author: PJD
+
+Description: Convergence of Anisotropic Diffusion operator vs. Laplacian
 """
 
 import numpy as np
