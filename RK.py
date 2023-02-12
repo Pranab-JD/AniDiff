@@ -13,12 +13,12 @@ def RK2(RHS_function, u, dt):
 
     return u_rk2, 2
 
-def RK4(RHS_function, u, dt):
+def RK4(RHS_function, u, dt, *t):
 
-    k1 = dt * RHS_function(u)
-    k2 = dt * RHS_function(u + k1/2)
-    k3 = dt * RHS_function(u + k2/2)
-    k4 = dt * RHS_function(u + k3)
+    k1 = dt * RHS_function(u, *t)
+    k2 = dt * RHS_function(u + k1/2, *t + dt/2)
+    k3 = dt * RHS_function(u + k2/2, *t + dt/2)
+    k4 = dt * RHS_function(u + k3, *t + dt)
 
     u_rk4 = u + 1./6.*(k1 + 2*k2 + 2*k3 + k4)
 

@@ -20,12 +20,11 @@ startTime = datetime.now()
 ### ============================================================================ ###
 
 ### Parameters
-spatial_order = 2
-tmax_list = [10.00]
+tmax_list = [0.50]
 N_list = [2**8]
 # N_list = [2**8]
 
-cfl_list = [10]
+cfl_list = [20]
 # cfl_list = [10]
 
 # tol_list = [1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7]
@@ -42,7 +41,7 @@ for N in N_list:
             for tol in tol_list:
 
                 ### Object initialization
-                run = Integrate(N, N, spatial_order, tmax, n_cfl, tol)
+                run = Integrate(N, N, tmax, n_cfl, tol)
 
                 def main():
                     run.run_code(tmax)

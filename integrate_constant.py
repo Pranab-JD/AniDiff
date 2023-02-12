@@ -1,5 +1,5 @@
 """
-Created on Wed Dec  3 15:46:29 2021
+Created on Wed Dec 3 15:46:29 2021
 
 @author: Pranab JD
 
@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 from scipy.sparse import lil_matrix, kron, identity, diags
 
 from datetime import datetime
+from LeXInt.Python.Eigenvalues import Power_iteration
 
 ### ------------------------------------------------- ###
 
@@ -28,7 +29,9 @@ sys.path.insert(1, "./LeXInt/Python/")
 sys.path.insert(1, "./LeXInt/Python/Constant/")
 
 from Eigenvalues import *
+from Phi_functions import *
 from real_Leja_exp import *
+from real_Leja_phi_nl import *
 from Divided_Difference import *
 
 from ETD import *
@@ -36,29 +39,37 @@ from RK import *
 from CN import *
 from ARK import *
 from mu_mode import *
-# from kiops import *
 
 ### ============================================================================ ###
     
 class Integrate(initial_distribution):   
     
-    def RHS_function(self, u):
+    def RHS_function(self, u, *t):
         """
             This function can be used directly for
             explicit and exponential integrators.
+            
+            #! self.A_dif.dot(u)
+            #!
+            #! self.A_dif.dot(u) + S(t)
+            #!
+            #! (self.A_dif + self.A_adv).dot(u) + S(t)
+            #!
+            #! S = 5e4*exp(-((X - 0.5)^2 + (Y - 0.5)^2)/0.0025)
+            #!
+            #! S(t) = 5e4*exp(-((X - 0.5)^2 + (Y - 0.5)^2)/0.0025) + sin(pi * t)
 
         """
         
-        return self.A_dif.dot(u)
+        ###? Time-independent source
+        S = 20*np.exp(-((self.X - 0.75)**2 + (self.Y - 0.75)**2)/0.025)
+        
+        ###? Time-dependent source
+        # S = 1e3*np.exp(-((self.X - 0.5)**2 + (self.Y - 0.5)**2)/0.025) + np.sin(np.pi * t[0])
+        
+        # return (self.A_dif + self.A_adv).dot(u) + S.reshape(self.N_x * self.N_y)
     
-    def RHS_function_kiops(self, u):
-        """
-            This function can be used directly for
-            explicit and exponential integrators.
-
-        """
-        
-        return self.A_dif.dot(u.reshape(self.N_x * self.N_y))
+        return self.A_dif.dot(u)
     
     ### ------------------------------------------------- ###
     
@@ -83,18 +94,17 @@ class Integrate(initial_distribution):
     
     ### ------------------------------------------------- ###
     
-    def solve_constant(self, integrator, u, dt, c, Gamma, Leja_X, tol, coeffs, exp_Axx, exp_Ayy):
+    def solve_constant(self, integrator, u, dt, c, Gamma, Leja_X, tol, exp_Axx, exp_Ayy, *t):
         
-        if integrator == "Leja":
-            
-            u_sol, num_rhs_calls = real_Leja_exp(u, dt, self.RHS_function, c, Gamma, Leja_X, tol, coeffs)
-            return u_sol, num_rhs_calls, 0
+        if integrator == "Leja_exp":
+
+            u_sol, num_rhs_calls = real_Leja_exp(u, dt, self.RHS_function, c, Gamma, Leja_X, tol)
+            return u_sol, num_rhs_calls
         
-        elif integrator == "Kiops":
-            zeroVec = np.zeros(np.shape(u))
-            
-            u_sol, num_rhs_calls = kiops([1], self.RHS_function_kiops, np.row_stack((u, zeroVec)), tol, task1=True)
-            return u_sol, stats
+        elif integrator == "Leja_phi":
+
+            u_sol, num_rhs_calls = real_Leja_phi_nl(dt, self.RHS_function, self.RHS_function(u)*dt, c, Gamma, Leja_X, phi_1, tol)
+            return u + u_sol, num_rhs_calls
         
         elif integrator == "mu_mode":
             u_sol = mu_mode(u, exp_Axx, exp_Ayy)
@@ -105,7 +115,7 @@ class Integrate(initial_distribution):
             return u_sol, num_rhs_calls
         
         elif integrator == "RK4":
-            u_sol, num_rhs_calls = RK4(self.RHS_function, u, dt)
+            u_sol, num_rhs_calls = RK4(self.RHS_function, u, dt, *t)
             return u_sol, num_rhs_calls
         
         elif integrator == "RKF45":
@@ -114,15 +124,15 @@ class Integrate(initial_distribution):
         
         elif integrator == "IMEX_Euler":
             u_sol, num_rhs_calls, cost = IMEX_Euler(u, dt, self.A_dif, self.Laplacian, tol)
-            return u_sol, num_rhs_calls, cost
+            return u_sol, num_rhs_calls
         
         elif integrator == "Crank_Nicolson":
             u_sol, num_rhs_calls, cost = Crank_Nicolson(u, dt, self.A_dif, tol)
-            return u_sol, num_rhs_calls, cost
+            return u_sol, num_rhs_calls
         
         elif integrator == "ARK2":
             u_sol, num_rhs_calls, c2, c3 = ARK2(u, dt, self.A_dif, self.Laplacian, tol)
-            return u_sol, num_rhs_calls, c2, c3
+            return u_sol, num_rhs_calls
         
         elif integrator == "ARK4":
             u_sol, num_rhs_calls = ARK4(u, dt, self.A_dif, self.Laplacian, tol)
@@ -144,7 +154,7 @@ class Integrate(initial_distribution):
     def run_code(self, tmax):
         
         ### Choose the integrator
-        integrator = "Leja"
+        integrator = "Leja_phi"
         print("Integrator: ", integrator)
         print()
         
@@ -162,15 +172,15 @@ class Integrate(initial_distribution):
         ### ======================================== ###
         
         ### Write data for movies
-        path = os.path.expanduser("~/PrJD/AniDiff Data Sets/Movie/Ring/")
+        # path = os.path.expanduser("~/PrJD/AniDiff Data Sets/Movie/Ring/")
         
-        if os.path.exists(path):
-            shutil.rmtree(path)                                 # remove previous directory with same name
-        os.makedirs(path, 0o777)                                # create directory with access rights
+        # if os.path.exists(path):
+        #     shutil.rmtree(path)                                 # remove previous directory with same name
+        # os.makedirs(path, 0o777)                                # create directory with access rights
         
-        file_movie = open(path + str(time_steps) + ".txt", 'w+')
-        np.savetxt(file_movie, u.reshape(self.N_y, self.N_x), fmt = '%.25f')
-        file_movie.close()
+        # file_movie = open(path + str(time_steps) + ".txt", 'w+')
+        # np.savetxt(file_movie, u.reshape(self.N_y, self.N_x), fmt = '%.25f')
+        # file_movie.close()
         
         ### ======================================== ###
         
@@ -198,22 +208,22 @@ class Integrate(initial_distribution):
             
             # filename = 
                     
-            file_movie = open(path + str(time_steps) + ".txt", 'w+')
-            np.savetxt(file_movie, u.reshape(self.N_y, self.N_x), fmt = '%.25f')
+            # file_movie = open(path + str(time_steps) + ".txt", 'w+')
+            # np.savetxt(file_movie, u.reshape(self.N_y, self.N_x), fmt = '%.25f')
             
             ############# --------------------- ##############
 
             ### Test plots
-            # plt.imshow(u.reshape(self.N_x, self.N_y), origin = 'lower', cmap = cm.gist_heat, 
-            #            extent = [self.xmin, self.xmax, self.ymin, self.ymax], aspect = 'equal')
+            plt.imshow(u.reshape(self.N_x, self.N_y), origin = 'lower', cmap = cm.gist_heat, 
+                       extent = [self.xmin, self.xmax, self.ymin, self.ymax], aspect = 'equal')
             
-            # # ax = plt.axes(projection = '3d')
-            # # ax.grid(False)
-            # # ax.view_init(elev = 30, azim = 60)
-            # # ax.plot_surface(self.X, self.Y, u.reshape(self.N_y, self.N_x), cmap = 'plasma', edgecolor = 'none')
+            # ax = plt.axes(projection = '3d')
+            # ax.grid(False)
+            # ax.view_init(elev = 30, azim = 60)
+            # ax.plot_surface(self.X, self.Y, u.reshape(self.N_y, self.N_x), cmap = 'plasma', edgecolor = 'none')
             
-            # plt.pause(1)
-            # plt.clf()
+            plt.pause(0.1)
+            plt.clf()
             
             ############# --------------------- ##############
             
@@ -231,23 +241,11 @@ class Integrate(initial_distribution):
                     
                     exp_Axx = linalg.expm(self.Dif_xx/self.dx**2 * self.D_xx * self.dt)
                     exp_Ayy = linalg.expm(self.Dif_yy/self.dy**2 * self.D_yy * self.dt)
-                    coeffs = 0
-                
-            elif (time_steps == 0 or self.dt != dt_array[0]) and integrator == "Leja":
-                    
-                    ### Matrix exponential (scaled and shifted)
-                    matrix_exponential = np.exp((c + Gamma*Leja_X) * self.dt)
-
-                    ### Compute polynomial coefficients
-                    coeffs = Divided_Difference(Leja_X, matrix_exponential) 
-                    
-                    exp_Axx = 0; exp_Ayy = 0
-                    
             else:
                 exp_Axx = 0; exp_Ayy = 0
                 
             ### Call integrator function
-            u_sol, num_rhs_calls, c2 = self.solve_constant(integrator, u, self.dt, c, Gamma, Leja_X, self.error_tol, 0, exp_Axx, exp_Ayy)
+            u_sol, num_rhs_calls = self.solve_constant(integrator, u, self.dt, c, Gamma, Leja_X, self.error_tol, exp_Axx, exp_Ayy, time)
             
             ### Append data to arrays
             dt_array.append(self.dt)                            # List of dt at each time step
@@ -261,7 +259,7 @@ class Integrate(initial_distribution):
             time_steps = time_steps + 1
             u = u_sol.copy()
             
-            if time_steps%1000 == 0:
+            if time_steps%100 == 0:
                 print("Time elapsed: ", time)
             
             # print("Time elapsed = ", time)
@@ -272,9 +270,9 @@ class Integrate(initial_distribution):
         ### ======================================== ###
             
         ## Data for movie
-        file_movie = open(path + str(time_steps) + ".txt", 'w+')
-        np.savetxt(file_movie, u.reshape(self.N_y, self.N_x), fmt = '%.25f')
-        file_movie.close()
+        # file_movie = open(path + str(time_steps) + ".txt", 'w+')
+        # np.savetxt(file_movie, u.reshape(self.N_y, self.N_x), fmt = '%.25f')
+        # file_movie.close()
         
         ### ======================================== ###
 
@@ -307,7 +305,7 @@ class Integrate(initial_distribution):
         # max_t = '{:1.2f}'.format(self.tmax)
         # emax = '{:5.1e}'.format(self.error_tol)
         
-        # direc_1 = os.path.expanduser("~/PrJD/AniDiff Data Sets/Constant/Ring/" + str(integrator) + "/Order_2/")
+        # direc_1 = os.path.expanduser("~/PrJD/AniDiff Data Sets/Constant/Ring/" + str(integrator))
         # direc_2 = os.path.expanduser(direc_1 + "/N_" + str(n_x) + "/T_" + str(max_t))
         # path = os.path.expanduser(direc_2 + "/dt_" + str(dt_value) + "_CFL/tol " + str(emax) + "/")
         
