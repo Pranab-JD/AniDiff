@@ -4,8 +4,7 @@ import numpy as np
 def Jacobian(RHS, u, v):
     
     ###* epsilon has to be normalised to RHS(u)
-    rhs_u = RHS(u)
-    epsilon = 1e-7 * np.linalg.norm(rhs_u)
+    epsilon = 1e-7 * np.linalg.norm(RHS(u))
     
     ###* J(u) * y = (RHS(u + epsilon*v) - RHS(u - epsilon*v))/(2*epsilon)
     Jac_vec = (RHS(u + (epsilon * v)) - RHS(u - (epsilon * v)))/(2 * epsilon)
