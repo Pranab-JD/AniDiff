@@ -1,6 +1,7 @@
 import sys
 sys.path.insert(1, "../")
 
+from Jacobian import *
 from Phi_functions import *
 from real_Leja_phi import *
 from imag_Leja_phi import *

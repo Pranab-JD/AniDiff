@@ -1,6 +1,7 @@
 import sys
 sys.path.insert(1, "../")
 
+from Jacobian import *
 from Phi_functions import *
 from real_Leja_phi import *
 from imag_Leja_phi import *
@@ -56,14 +57,14 @@ def EXPRB32(u, dt, RHS_function, c, Gamma, Leja_X, tol, Real_Imag):
     
     ############## --------------------- ##############
 
-    ###? Internal stage 1; interpolation of f(u) at 1
+    ###? Interpolation of f(u) at 1
     u_flux, rhs_calls_1, convergence = Leja_phi(u, dt, RHS_function, RHS_function(u)*dt, [1], c, Gamma, Leja_X, phi_1, tol)
     
     ## If it does not converge, return (try with smaller dt)
     if convergence == 0:
         return u, 2.1*u, rhs_calls_1
 
-    ###? 2nd order solution; u_2 = u + phi_1(J(u) dt) f(u) dt
+    ###? Internal stage; 2nd order solution; u_2 = u + phi_1(J(u) dt) f(u) dt
     u_exprb2 = u + u_flux[:, 0]
 
     ###? Difference of nonlinear remainders at a
