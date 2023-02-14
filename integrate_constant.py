@@ -46,7 +46,7 @@ class Integrate(initial_distribution):
     
     def RHS_function(self, u):
         
-        return (self.A_dif + self.A_adv).dot(u)
+        return (self.A_dif).dot(u)
     
     def RHS_phi(self, u):
         
@@ -60,7 +60,11 @@ class Integrate(initial_distribution):
         ###? *args[0] = time
         
         ###? Time-dependent source
-        S = 1e3*np.exp(-((self.X - 0.75)**2 + (self.Y - 0.75)**2)/0.025) + np.sin(np.pi * args[0])
+        S = 10 * np.exp(-((self.X - 0.5)**2 + (self.Y - 0.5)**2)/0.015) * np.exp(-10 * abs(2.0 - args[0]))\
+          +  3 * np.exp(-(self.X**2 + (self.Y + 0.3)**2)/0.025) * np.exp(-7 * abs(5.0 - args[0]))\
+          +  7 * np.exp(-((self.X + 0.5)**2 + (self.Y + 0.9)**2)/0.02) * np.exp(-5 * args[0])
+         
+        # print("Max Source: ", np.max(S))
     
         return self.RHS_function(u) + S.reshape(self.N_x * self.N_y)
         
@@ -69,7 +73,7 @@ class Integrate(initial_distribution):
         ###? *args[0] = time
         
         ###? Time-dependent source
-        S = 1e3*np.exp(-((self.X - 0.75)**2 + (self.Y - 0.75)**2)/0.025) + np.sin(np.pi * (args[0] + dt/2))
+        S = 20*np.exp(-((self.X - 0.75)**2 + (self.Y - 0.75)**2)/0.025) + np.exp(-(args[0] + dt/2))
     
         return self.RHS_function(u) + S.reshape(self.N_x * self.N_y)
     
@@ -166,7 +170,7 @@ class Integrate(initial_distribution):
     def run_code(self, tmax):
         
         ###! Choose the integrator
-        integrator = "Leja_phi"
+        integrator = "Leja_phi_TDS_Euler"
         print("Integrator: ", integrator)
         print()
         
@@ -177,6 +181,7 @@ class Integrate(initial_distribution):
         time = 0                                                # Time elapsed
         time_steps = 0                                          # Time steps
         u = self.initial_u().reshape(self.N_x * self.N_y)       # Reshape 2D into 1D
+        u = u*0
         
         ############## --------------------- ##############
         
@@ -267,6 +272,10 @@ class Integrate(initial_distribution):
             
             if time_steps%100 == 0:
                 print("Time elapsed: ", time)
+                print("Max value: ", np.max(u))
+                print("Avg value: ", np.mean(u))
+                print("Min value: ", np.min(u))
+                print()
             
             # print("Time elapsed = ", time)
             # print("Mean value: ", np.max(u))
