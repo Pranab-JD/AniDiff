@@ -48,7 +48,7 @@ class Integrate(initial_distribution):
         
         return (self.A_dif + self.A_adv).dot(u)
     
-    def RHS_phi(self, u, *args):
+    def RHS_phi(self, u):
         
         ###? Time-independent source
         S = 20*np.exp(-((self.X - 0.75)**2 + (self.Y - 0.75)**2)/0.025)
@@ -60,16 +60,16 @@ class Integrate(initial_distribution):
         ###? *args[0] = time
         
         ###? Time-dependent source
-        S = 1e3*np.exp(-((self.X - 0.5)**2 + (self.Y - 0.5)**2)/0.025) + np.sin(np.pi * args[0])
+        S = 1e3*np.exp(-((self.X - 0.75)**2 + (self.Y - 0.75)**2)/0.025) + np.sin(np.pi * args[0])
     
         return self.RHS_function(u) + S.reshape(self.N_x * self.N_y)
         
-    def RHS_phi_midpoint(self, u, *args):
-            
-        ###? *args[0] = time, *args[1] = dt
+    def RHS_phi_midpoint(self, u, dt, *args):
+
+        ###? *args[0] = time
         
         ###? Time-dependent source
-        S = 1e3*np.exp(-((self.X - 0.5)**2 + (self.Y - 0.5)**2)/0.025) + np.sin(np.pi * (args[0] + args[1]/2))
+        S = 1e3*np.exp(-((self.X - 0.75)**2 + (self.Y - 0.75)**2)/0.025) + np.sin(np.pi * (args[0] + dt/2))
     
         return self.RHS_function(u) + S.reshape(self.N_x * self.N_y)
     
@@ -96,16 +96,26 @@ class Integrate(initial_distribution):
     
     ### ------------------------------------------------- ###
     
-    def solve_constant(self, integrator, u, dt, c, Gamma, Leja_X, tol, exp_Axx, exp_Ayy, *t):
+    def solve_constant(self, integrator, u, dt, c, Gamma, Leja_X, tol, exp_Axx, exp_Ayy, *args):
         
         if integrator == "Leja_exp":
 
             u_sol, num_rhs_calls = real_Leja_exp(u, dt, self.RHS_function, c, Gamma, Leja_X, tol)
             return u_sol, num_rhs_calls
         
-        elif integrator == "Leja_phi":
+        elif integrator == "Leja_phi_TIS":
 
-            u_sol, num_rhs_calls = real_Leja_phi_nl(dt, self.RHS_function, self.RHS_function(u)*dt, c, Gamma, Leja_X, phi_1, tol)
+            u_sol, num_rhs_calls = real_Leja_phi_nl(dt, self.RHS_function, self.RHS_phi(u)*dt, c, Gamma, Leja_X, phi_1, tol)
+            return u + u_sol, num_rhs_calls
+        
+        elif integrator == "Leja_phi_TDS_Euler":
+    
+            u_sol, num_rhs_calls = real_Leja_phi_nl(dt, self.RHS_function, self.RHS_phi_Euler(u, *args)*dt, c, Gamma, Leja_X, phi_1, tol)
+            return u + u_sol, num_rhs_calls
+        
+        elif integrator == "Leja_phi_TDS_midpoint":
+        
+            u_sol, num_rhs_calls = real_Leja_phi_nl(dt, self.RHS_function, self.RHS_phi_midpoint(u, dt, *args)*dt, c, Gamma, Leja_X, phi_1, tol)
             return u + u_sol, num_rhs_calls
         
         elif integrator == "mu_mode":
@@ -117,7 +127,7 @@ class Integrate(initial_distribution):
             return u_sol, num_rhs_calls
         
         elif integrator == "RK4":
-            u_sol, num_rhs_calls = RK4(self.RHS_function, u, dt, *t)
+            u_sol, num_rhs_calls = RK4(self.RHS_function, u, dt, *args)
             return u_sol, num_rhs_calls
         
         elif integrator == "RKF45":
@@ -155,7 +165,7 @@ class Integrate(initial_distribution):
         
     def run_code(self, tmax):
         
-        ### Choose the integrator
+        ###! Choose the integrator
         integrator = "Leja_phi"
         print("Integrator: ", integrator)
         print()
@@ -168,9 +178,9 @@ class Integrate(initial_distribution):
         time_steps = 0                                          # Time steps
         u = self.initial_u().reshape(self.N_x * self.N_y)       # Reshape 2D into 1D
         
-        ### ======================================== ###
+        ############## --------------------- ##############
         
-        ### Write data for movies
+        ###! Write data to files for movie
         # path = os.path.expanduser("~/PrJD/AniDiff Data Sets/Movie/Ring/")
         
         # if os.path.exists(path):
@@ -181,19 +191,17 @@ class Integrate(initial_distribution):
         # np.savetxt(file_movie, u.reshape(self.N_y, self.N_x), fmt = '%.25f')
         # file_movie.close()
         
-        ### ======================================== ###
-        
         ############## --------------------- ##############
         
-        ### Read Leja points
+        ###? Read Leja points
         Leja_X = np.loadtxt("Leja_10000.txt")
         Leja_X = Leja_X[0:2000]
         
-        ### Eigenvalues (Remains constant for linear equations)
+        ###? Eigenvalues (Remains constant for linear equations)
         eigen_min_dif = 0.0
         eigen_max_dif, _ = Gershgorin(self.A_dif)      # Max real, imag eigenvalue
         
-        ### Scaling and shifting factors
+        ###? Scaling and shifting factors
         c = 0.5 * (eigen_max_dif + eigen_min_dif)
         Gamma = 0.25 * (eigen_min_dif - eigen_max_dif)
         
@@ -202,15 +210,12 @@ class Integrate(initial_distribution):
         ### Start timer
         tolTime = datetime.now()
         
-        ### Time loop ###
+        ###!! Time loop !!###
         while time < tmax:
-                    
-            # file_movie = open(path + str(time_steps) + ".txt", 'w+')
-            # np.savetxt(file_movie, u.reshape(self.N_y, self.N_x), fmt = '%.25f')
             
             ############# --------------------- ##############
 
-            ### Test plots
+            ###? Test plots
             plt.imshow(u.reshape(self.N_x, self.N_y), origin = 'lower', cmap = cm.gist_heat, 
                        extent = [self.xmin, self.xmax, self.ymin, self.ymax], aspect = 'equal')
             
@@ -224,6 +229,7 @@ class Integrate(initial_distribution):
             
             ############# --------------------- ##############
             
+            ###! Final time step
             if time + self.dt >= tmax:
                 self.dt = tmax - time
                 
@@ -234,6 +240,9 @@ class Integrate(initial_distribution):
             
             ############## --------------------- ##############
             
+            ###! Compute the matrix exponentials for the mu-mode interator
+            ###! only at the first and last time steps
+            
             if (time_steps == 0 or self.dt != dt_array[0]) and integrator == "mu_mode":
                     
                     exp_Axx = linalg.expm(self.Dif_xx/self.dx**2 * self.D_xx * self.dt)
@@ -241,15 +250,17 @@ class Integrate(initial_distribution):
             else:
                 exp_Axx = 0; exp_Ayy = 0
                 
-            ### Call integrator function
+            ############## --------------------- ##############
+                
+            ###? Call integrator function
             u_sol, num_rhs_calls = self.solve_constant(integrator, u, self.dt, c, Gamma, Leja_X, self.error_tol, exp_Axx, exp_Ayy, time)
             
-            ### Append data to arrays
+            ###? Append data to arrays
             dt_array.append(self.dt)                            # List of dt at each time step
             time_array.append(time)                             # List of time elapsed
             cost_array.append(num_rhs_calls)                    # List of matrix-vector products
             
-            ### Update variables
+            ###? Update variables
             time = time + self.dt
             time_steps = time_steps + 1
             u = u_sol.copy()
@@ -262,21 +273,19 @@ class Integrate(initial_distribution):
             # print()
             # print()
             
-        ### ======================================== ###
-            
-        ## Data for movie
-        # file_movie = open(path + str(time_steps) + ".txt", 'w+')
-        # np.savetxt(file_movie, u.reshape(self.N_y, self.N_x), fmt = '%.25f')
-        # file_movie.close()
-        
-        ### ======================================== ###
+            ############## --------------------- ##############
+                
+            ###! Write data to files for movie
+            # file_movie = open(path + str(time_steps) + ".txt", 'w+')
+            # np.savetxt(file_movie, u.reshape(self.N_y, self.N_x), fmt = '%.25f')
+            # file_movie.close()
 
         ############## --------------------- ##############
             
         ### Stop timer
         tol_time = datetime.now() - tolTime
         
-        ### Final plots
+        ###? Final plots
         # plt.subplot(1, 2, 1)
         # plt.imshow(u.reshape(self.N_x, self.N_y), origin = 'lower', cmap = cm.seismic, 
         #                extent = [self.xmin, self.xmax, self.ymin, self.ymax], aspect = 'equal')
@@ -293,7 +302,7 @@ class Integrate(initial_distribution):
         print("# time steps : ", time_steps)
         # print("Max value: ", np.max(u))
         
-        # # ### Create directory
+        ###! Create directories
         # dt_value = '{:0.0f}'.format(self.N_cfl)
         # order = '{:1.0f}'.format(self.spatial_order)
         # n_x = '{:2.0f}'.format(self.N_x); n_y = '{:2.0f}'.format(self.N_y)
@@ -308,12 +317,12 @@ class Integrate(initial_distribution):
         #     shutil.rmtree(path)                                 # remove previous directory with same name
         # os.makedirs(path, 0o777)                                # create directory with access rights
             
-        # ### Write final data to file
+        ###! Write final data to file
         # file_final = open(path + "Final_data.txt", 'w+')
         # np.savetxt(file_final, u.reshape(self.N_y, self.N_x), fmt = '%.25f')
         # file_final.close()
         
-        # ### Write simulation results to file
+        ###! Write simulation results to file
         # file_res = open(path + '/Results.txt', 'w+')
         # file_res.write("Time elapsed (secs): %s" % str(tol_time) + "\n" + "\n")
         # file_res.write("Number of matrix-vector products = %d" % np.sum(cost_array) + "\n" + "\n")
@@ -322,14 +331,5 @@ class Integrate(initial_distribution):
         # file_res.write("Time:" + "\n")
         # file_res.write(' '.join(map(str, time_array)) % time_array + "\n" + "\n")
         # file_res.close()
-        
-        # file_cost = open(path + '/Cost.txt', 'w+')
-        # file_cost.write("Total:" + "\n")
-        # file_cost.write(' '.join(map(str, cost_array)) % cost_array + "\n" + "\n")
-        # file_cost.write("Iters 1:" + "\n")
-        # file_cost.write(' '.join(map(str, cost_1)) % cost_1 + "\n" + "\n")
-        # # file_cost.write("Iters 2:" + "\n")
-        # # file_cost.write(' '.join(map(str, cost_2)) % cost_2 + "\n" + "\n")
-        # file_cost.close()
         
 ### ============================================================================ ###
