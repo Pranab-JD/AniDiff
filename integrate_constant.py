@@ -42,34 +42,36 @@ from mu_mode import *
 
 ### ============================================================================ ###
     
-class Integrate(initial_distribution):   
+class Integrate(initial_distribution):
     
-    def RHS_function(self, u, *t):
-        """
-            This function can be used directly for
-            explicit and exponential integrators.
-            
-            #! self.A_dif.dot(u)
-            #!
-            #! self.A_dif.dot(u) + S(t)
-            #!
-            #! (self.A_dif + self.A_adv).dot(u) + S(t)
-            #!
-            #! S = 5e4*exp(-((X - 0.5)^2 + (Y - 0.5)^2)/0.0025)
-            #!
-            #! S(t) = 5e4*exp(-((X - 0.5)^2 + (Y - 0.5)^2)/0.0025) + sin(pi * t)
-
-        """
+    def RHS_function(self, u):
+        
+        return (self.A_dif + self.A_adv).dot(u)
+    
+    def RHS_phi(self, u, *args):
         
         ###? Time-independent source
         S = 20*np.exp(-((self.X - 0.75)**2 + (self.Y - 0.75)**2)/0.025)
+    
+        return self.RHS_function(u) + S.reshape(self.N_x * self.N_y)
+    
+    def RHS_phi_Euler(self, u, *args):
+        
+        ###? *args[0] = time
         
         ###? Time-dependent source
-        # S = 1e3*np.exp(-((self.X - 0.5)**2 + (self.Y - 0.5)**2)/0.025) + np.sin(np.pi * t[0])
-        
-        # return (self.A_dif + self.A_adv).dot(u) + S.reshape(self.N_x * self.N_y)
+        S = 1e3*np.exp(-((self.X - 0.5)**2 + (self.Y - 0.5)**2)/0.025) + np.sin(np.pi * args[0])
     
-        return self.A_dif.dot(u)
+        return self.RHS_function(u) + S.reshape(self.N_x * self.N_y)
+        
+    def RHS_phi_midpoint(self, u, *args):
+            
+        ###? *args[0] = time, *args[1] = dt
+        
+        ###? Time-dependent source
+        S = 1e3*np.exp(-((self.X - 0.5)**2 + (self.Y - 0.5)**2)/0.025) + np.sin(np.pi * (args[0] + args[1]/2))
+    
+        return self.RHS_function(u) + S.reshape(self.N_x * self.N_y)
     
     ### ------------------------------------------------- ###
     
