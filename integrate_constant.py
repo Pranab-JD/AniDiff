@@ -26,7 +26,7 @@ from initial_1 import *       # Ring
 
 ### Import LeXInt
 sys.path.insert(1, "./LeXInt/Python/")
-sys.path.insert(1, "./LeXInt/Python/Constant/")
+sys.path.insert(1, "./LeXInt/Python/Integrators/")
 
 from Eigenvalues import *
 from Phi_functions import *
@@ -161,13 +161,10 @@ class Integrate(initial_distribution):
         dt_array = []                                           # Array - dt used
         time_array = []                                         # Array - time elapsed after each time step
         cost_array = []                                         # Array - # of matrix-vector products
-        cost_1 = []
-        cost_2 = []
         
         time = 0                                                # Time elapsed
         time_steps = 0                                          # Time steps
         u = self.initial_u().reshape(self.N_x * self.N_y)       # Reshape 2D into 1D
-        
         
         ### ======================================== ###
         
@@ -205,8 +202,6 @@ class Integrate(initial_distribution):
         
         ### Time loop ###
         while time < tmax:
-            
-            # filename = 
                     
             # file_movie = open(path + str(time_steps) + ".txt", 'w+')
             # np.savetxt(file_movie, u.reshape(self.N_y, self.N_x), fmt = '%.25f')
@@ -251,8 +246,6 @@ class Integrate(initial_distribution):
             dt_array.append(self.dt)                            # List of dt at each time step
             time_array.append(time)                             # List of time elapsed
             cost_array.append(num_rhs_calls)                    # List of matrix-vector products
-            # cost_1.append(c2)
-            # cost_2.append(c3) 
             
             ### Update variables
             time = time + self.dt
