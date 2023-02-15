@@ -46,12 +46,12 @@ class Integrate(initial_distribution):
     
     def RHS_function(self, u):
         
-        return (self.A_dif).dot(u)
+        return (self.A_dif + self.A_adv).dot(u)
     
     def RHS_phi(self, u):
         
         ###? Time-independent source
-        S = 20*np.exp(-((self.X - 0.75)**2 + (self.Y - 0.75)**2)/0.025)
+        S = 0.1 + 30*np.exp(-((self.X - 0.5)**2 + (self.Y - 0.5)**2)/0.035)
     
         return self.RHS_function(u) + S.reshape(self.N_x * self.N_y)
     
@@ -60,22 +60,22 @@ class Integrate(initial_distribution):
         ###? *args[0] = time
         
         ###? Time-dependent source
-        S = 10 * np.exp(-((self.X - 0.5)**2 + (self.Y - 0.5)**2)/0.015) * np.exp(-10 * abs(2.0 - args[0]))\
-          +  3 * np.exp(-(self.X**2 + (self.Y + 0.3)**2)/0.025) * np.exp(-7 * abs(5.0 - args[0]))\
-          +  7 * np.exp(-((self.X + 0.5)**2 + (self.Y + 0.9)**2)/0.02) * np.exp(-5 * args[0])
-         
-        # print("Max Source: ", np.max(S))
+        S1 = 10 * np.exp(-((self.X - 0.5)**2 + (self.Y - 0.5)**2)/0.015) * np.exp(-10 * abs(2.0 - args[0]))
+        S2 = 3 * np.exp(-(self.X**2 + (self.Y + 0.3)**2)/0.025) * np.exp(-7 * abs(5.0 - args[0]))
+        S3 = 7 * np.exp(-((self.X + 0.5)**2 + (self.Y + 0.9)**2)/0.02) * np.exp(-5 * args[0])
     
-        return self.RHS_function(u) + S.reshape(self.N_x * self.N_y)
+        return self.RHS_function(u) + (S1 + S2 + S3).reshape(self.N_x * self.N_y)
         
     def RHS_phi_midpoint(self, u, dt, *args):
 
         ###? *args[0] = time
         
         ###? Time-dependent source
-        S = 20*np.exp(-((self.X - 0.75)**2 + (self.Y - 0.75)**2)/0.025) + np.exp(-(args[0] + dt/2))
+        S1 = 10 * np.exp(-((self.X - 0.5)**2 + (self.Y - 0.5)**2)/0.015) * np.exp(-10 * abs(2.0 - (args[0] + dt/2)))
+        S2 = 3 * np.exp(-(self.X**2 + (self.Y + 0.3)**2)/0.025) * np.exp(-7 * abs(5.0 - (args[0] + dt/2)))
+        S3 = 7 * np.exp(-((self.X + 0.5)**2 + (self.Y + 0.9)**2)/0.02) * np.exp(-5 * (args[0] + dt/2))
     
-        return self.RHS_function(u) + S.reshape(self.N_x * self.N_y)
+        return self.RHS_function(u) + (S1 + S2 + S3).reshape(self.N_x * self.N_y)
     
     ### ------------------------------------------------- ###
     
@@ -110,17 +110,17 @@ class Integrate(initial_distribution):
         elif integrator == "Leja_phi_TIS":
 
             u_sol, num_rhs_calls = real_Leja_phi_nl(dt, self.RHS_function, self.RHS_phi(u)*dt, c, Gamma, Leja_X, phi_1, tol)
-            return u + u_sol, num_rhs_calls
+            return u + u_sol, num_rhs_calls + 1
         
         elif integrator == "Leja_phi_TDS_Euler":
     
             u_sol, num_rhs_calls = real_Leja_phi_nl(dt, self.RHS_function, self.RHS_phi_Euler(u, *args)*dt, c, Gamma, Leja_X, phi_1, tol)
-            return u + u_sol, num_rhs_calls
+            return u + u_sol, num_rhs_calls + 1
         
         elif integrator == "Leja_phi_TDS_midpoint":
         
             u_sol, num_rhs_calls = real_Leja_phi_nl(dt, self.RHS_function, self.RHS_phi_midpoint(u, dt, *args)*dt, c, Gamma, Leja_X, phi_1, tol)
-            return u + u_sol, num_rhs_calls
+            return u + u_sol, num_rhs_calls + 1
         
         elif integrator == "mu_mode":
             u_sol = mu_mode(u, exp_Axx, exp_Ayy)
@@ -131,7 +131,7 @@ class Integrate(initial_distribution):
             return u_sol, num_rhs_calls
         
         elif integrator == "RK4":
-            u_sol, num_rhs_calls = RK4(self.RHS_function, u, dt, *args)
+            u_sol, num_rhs_calls = RK4(self.RHS_phi_Euler, u, dt, *args)
             return u_sol, num_rhs_calls
         
         elif integrator == "RKF45":
@@ -170,7 +170,7 @@ class Integrate(initial_distribution):
     def run_code(self, tmax):
         
         ###! Choose the integrator
-        integrator = "Leja_phi_TDS_Euler"
+        integrator = "Leja_phi_TIS"
         print("Integrator: ", integrator)
         print()
         
@@ -181,7 +181,7 @@ class Integrate(initial_distribution):
         time = 0                                                # Time elapsed
         time_steps = 0                                          # Time steps
         u = self.initial_u().reshape(self.N_x * self.N_y)       # Reshape 2D into 1D
-        u = u*0
+        # u = u*0
         
         ############## --------------------- ##############
         
@@ -200,7 +200,7 @@ class Integrate(initial_distribution):
         
         ###? Read Leja points
         Leja_X = np.loadtxt("Leja_10000.txt")
-        Leja_X = Leja_X[0:2000]
+        # Leja_X = Leja_X[0:3000]
         
         ###? Eigenvalues (Remains constant for linear equations)
         eigen_min_dif = 0.0
@@ -221,16 +221,17 @@ class Integrate(initial_distribution):
             ############# --------------------- ##############
 
             ###? Test plots
-            plt.imshow(u.reshape(self.N_x, self.N_y), origin = 'lower', cmap = cm.gist_heat, 
-                       extent = [self.xmin, self.xmax, self.ymin, self.ymax], aspect = 'equal')
+            # plt.imshow(u.reshape(self.N_x, self.N_y), origin = 'lower', cmap = cm.seismic, 
+            #            extent = [self.xmin, self.xmax, self.ymin, self.ymax], aspect = 'equal')
             
-            # ax = plt.axes(projection = '3d')
-            # ax.grid(False)
-            # ax.view_init(elev = 30, azim = 60)
-            # ax.plot_surface(self.X, self.Y, u.reshape(self.N_y, self.N_x), cmap = 'plasma', edgecolor = 'none')
+            # # ax = plt.axes(projection = '3d')
+            # # ax.grid(False)
+            # # ax.view_init(elev = 30, azim = 60)
+            # # ax.plot_surface(self.X, self.Y, u.reshape(self.N_y, self.N_x), cmap = 'seismic', edgecolor = 'none')
             
-            plt.pause(0.1)
-            plt.clf()
+            # plt.colorbar()
+            # plt.pause(0.1)
+            # plt.clf()
             
             ############# --------------------- ##############
             
@@ -273,7 +274,6 @@ class Integrate(initial_distribution):
             if time_steps%100 == 0:
                 print("Time elapsed: ", time)
                 print("Max value: ", np.max(u))
-                print("Avg value: ", np.mean(u))
                 print("Min value: ", np.min(u))
                 print()
             
@@ -294,7 +294,9 @@ class Integrate(initial_distribution):
         ### Stop timer
         tol_time = datetime.now() - tolTime
         
-        ###? Final plots
+        ############## --------------------- ##############
+        
+        ###? Test plots
         # plt.subplot(1, 2, 1)
         # plt.imshow(u.reshape(self.N_x, self.N_y), origin = 'lower', cmap = cm.seismic, 
         #                extent = [self.xmin, self.xmax, self.ymin, self.ymax], aspect = 'equal')
@@ -302,9 +304,11 @@ class Integrate(initial_distribution):
         
         # plt.subplot(1, 2, 2)
         # plt.plot(np.linspace(-1, 1, self.N_x), u.reshape(self.N_x, self.N_y)[int(self.N_x/2), :])
-        # plt.plot(np.linspace(-1, 1, self.N_x), 0.1*np.ones(self.N_x), "r--")
+        # # plt.plot(np.linspace(-1, 1, self.N_x), 0.1*np.ones(self.N_x), "r--")
         
         # plt.show()
+        
+        ############## --------------------- ##############
         
         print("# RHS calls  : ", np.sum(cost_array))
         print("Time elapsed : ", str(tol_time))
@@ -312,33 +316,32 @@ class Integrate(initial_distribution):
         # print("Max value: ", np.max(u))
         
         ###! Create directories
-        # dt_value = '{:0.0f}'.format(self.N_cfl)
-        # order = '{:1.0f}'.format(self.spatial_order)
-        # n_x = '{:2.0f}'.format(self.N_x); n_y = '{:2.0f}'.format(self.N_y)
-        # max_t = '{:1.2f}'.format(self.tmax)
-        # emax = '{:5.1e}'.format(self.error_tol)
+        dt_value = '{:0.0f}'.format(self.N_cfl)
+        n_x = '{:2.0f}'.format(self.N_x); n_y = '{:2.0f}'.format(self.N_y)
+        max_t = '{:1.2f}'.format(self.tmax)
+        emax = '{:5.1e}'.format(self.error_tol)
         
-        # direc_1 = os.path.expanduser("~/PrJD/AniDiff Data Sets/Constant/Ring/" + str(integrator))
-        # direc_2 = os.path.expanduser(direc_1 + "/N_" + str(n_x) + "/T_" + str(max_t))
-        # path = os.path.expanduser(direc_2 + "/dt_" + str(dt_value) + "_CFL/tol " + str(emax) + "/")
+        direc_1 = os.path.expanduser("~/PrJD/AniDiff_Source_Data/Constant/Ring/Diff_Adv/" + str(integrator))
+        direc_2 = os.path.expanduser(direc_1 + "/N_" + str(n_x) + "/T_" + str(max_t))
+        path = os.path.expanduser(direc_2 + "/dt_" + str(dt_value) + "_CFL/tol " + str(emax) + "/")
         
-        # if os.path.exists(path):
-        #     shutil.rmtree(path)                                 # remove previous directory with same name
-        # os.makedirs(path, 0o777)                                # create directory with access rights
+        if os.path.exists(path):
+            shutil.rmtree(path)                                 # remove previous directory with same name
+        os.makedirs(path, 0o777)                                # create directory with access rights
             
         ###! Write final data to file
-        # file_final = open(path + "Final_data.txt", 'w+')
-        # np.savetxt(file_final, u.reshape(self.N_y, self.N_x), fmt = '%.25f')
-        # file_final.close()
+        file_final = open(path + "Final_data.txt", 'w+')
+        np.savetxt(file_final, u.reshape(self.N_y, self.N_x), fmt = '%.25f')
+        file_final.close()
         
         ###! Write simulation results to file
-        # file_res = open(path + '/Results.txt', 'w+')
-        # file_res.write("Time elapsed (secs): %s" % str(tol_time) + "\n" + "\n")
-        # file_res.write("Number of matrix-vector products = %d" % np.sum(cost_array) + "\n" + "\n")
-        # file_res.write("dt:" + "\n")
-        # file_res.write(' '.join(map(str, dt_array)) % dt_array + "\n" + "\n")
-        # file_res.write("Time:" + "\n")
-        # file_res.write(' '.join(map(str, time_array)) % time_array + "\n" + "\n")
-        # file_res.close()
+        file_res = open(path + '/Results.txt', 'w+')
+        file_res.write("Time elapsed (secs): %s" % str(tol_time) + "\n" + "\n")
+        file_res.write("Number of matrix-vector products = %d" % np.sum(cost_array) + "\n" + "\n")
+        file_res.write("dt:" + "\n")
+        file_res.write(' '.join(map(str, dt_array)) % dt_array + "\n" + "\n")
+        file_res.write("Time:" + "\n")
+        file_res.write(' '.join(map(str, time_array)) % time_array + "\n" + "\n")
+        file_res.close()
         
 ### ============================================================================ ###
