@@ -45,10 +45,17 @@ class Computational_Domain_2D:
     def initialize_parameters(self):
         
         ### Diffusion Coefficients
-        self.D_xx = self.X**2
+        self.D_xx = (self.X + 4*self.Y)**2
         # self.D_xy = 0.5
         # self.D_yx = 0.5
-        self.D_yy = self.Y**2
+        self.D_yy = self.X**2
+        
+        ###? Ring: self.D_xx = self.Y**2, self.D_yy = self.X**2
+        ###?       self.Dif_x = self.Dif_x.multiply(self.X), self.Dif_y.multiply(-self.Y)
+        
+        ###? Spiral 2: self.D_xx = (self.X + 4*self.Y)**2, self.D_yy = self.X**2
+        ###?           self.Dif_x = self.Dif_x.multiply(self.X + 4*self.Y), self.Dif_y.multiply(-self.X)
+        
         
         ### Advection velocity
         self.velocity_x = 1
@@ -81,12 +88,12 @@ class Computational_Domain_2D:
         
         ### Boundary conditions (Periodic)
         ## Diagonal terms
-        self.Dif_xx[0, -1] = 1; self.Dif_xx[-1, 0] = 1      # (0, -1), (N-1, 0)
-        self.Dif_yy[0, -1] = 1; self.Dif_yy[-1, 0] = 1      # (0, -1), (N-1, 0)
+        # self.Dif_xx[0, -1] = 1; self.Dif_xx[-1, 0] = 1      # (0, -1), (N-1, 0)
+        # self.Dif_yy[0, -1] = 1; self.Dif_yy[-1, 0] = 1      # (0, -1), (N-1, 0)
         
-        ## Off-diagonal terms
-        self.Dif_x[0, -1] = 1; self.Dif_x[-1, 0] = -1       # (0, -1), (N-1, 0)
-        self.Dif_y[0, -1] = 1; self.Dif_y[-1, 0] = -1       # (0, -1), (N-1, 0)
+        # ## Off-diagonal terms
+        # self.Dif_x[0, -1] = 1; self.Dif_x[-1, 0] = -1       # (0, -1), (N-1, 0)
+        # self.Dif_y[0, -1] = 1; self.Dif_y[-1, 0] = -1       # (0, -1), (N-1, 0)
         
         ### ------------------------------------------------- ###
         
@@ -95,8 +102,8 @@ class Computational_Domain_2D:
         self.Adv_y = lil_matrix(diags(-2/6*np.ones(self.N_y - 1), -1) + diags(-3/6*np.ones(self.N_y), 0) + diags(np.ones(self.N_y - 1), 1) + diags(-1/6*np.ones(self.N_y - 2), 2))
         
         ### Boundary conditions (Periodic)
-        self.Adv_x[-2, 0] = -1/6; self.Adv_x[-1, 0] = 1; self.Adv_x[-1, 1] = -1/6; self.Adv_x[0, -1] = -2/6
-        self.Adv_y[-2, 0] = -1/6; self.Adv_y[-1, 0] = 1; self.Adv_y[-1, 1] = -1/6; self.Adv_y[0, -1] = -2/6
+        # self.Adv_x[-2, 0] = -1/6; self.Adv_x[-1, 0] = 1; self.Adv_x[-1, 1] = -1/6; self.Adv_x[0, -1] = -2/6
+        # self.Adv_y[-2, 0] = -1/6; self.Adv_y[-1, 0] = 1; self.Adv_y[-1, 1] = -1/6; self.Adv_y[0, -1] = -2/6
         
         ### ------------------------------------------------- ###
     
@@ -109,8 +116,8 @@ class Computational_Domain_2D:
         ### ------------------------------------------------- ###
         
         ### Space dependent diffusion coefficients
-        self.Dif_x = self.Dif_x.multiply(self.X)
-        self.Dif_y = self.Dif_y.multiply(-self.Y)
+        self.Dif_x = self.Dif_x.multiply(self.X + 4*self.Y)
+        self.Dif_y = self.Dif_y.multiply(-self.X)
         
         ### ------------------------------------------------- ###
 

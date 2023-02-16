@@ -4,15 +4,14 @@ Created on Fri Apr 12 11:46:41 2022
 @author: Pranab JD
 """
 
-import numpy as np
-from scipy.sparse import lil_matrix, kron, identity, diags, linalg
+from scipy.sparse import identity, linalg
 
 from domain import Computational_Domain_2D
 
 class counter:
     def __init__(self):
         self.count = 0
-    def incr(self,x):
+    def incr(self, x):
         self.count = self.count + 1
 
 def GMRES(A, b, x0, tol):
@@ -29,10 +28,10 @@ def IMEX_Euler(u, dt, A, Laplacian, tol):
     
     u, iters = GMRES(identity(A.shape[0]) - eigen_B*dt*Laplacian, u + dt*(A.dot(u) - eigen_B*Laplacian.dot(u)), u, tol)
     
-    return u[0], iters + 2, iters
+    return u[0], iters + 2
 
-def Crank_Nicolson(u, dt, A, tol):
+def Crank_Nicolson(u, dt, A, tol, *args):
     
-    u, iters = GMRES(identity(A.shape[0]) - 0.5*dt*A, u + 0.5*dt*A.dot(u), u, tol)
+    u, iters = GMRES(identity(A.shape[0]) - 0.5*dt*A, u + 0.5*dt*A.dot(u) + 0.5*dt*(args[0] + args[1]), u, tol)
     
-    return u[0], iters + 1, iters
+    return u[0], iters + 1

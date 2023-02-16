@@ -44,14 +44,22 @@ from mu_mode import *
     
 class Integrate(initial_distribution):
     
+    def TIS(self):
+        
+        S = 0.1 + 30*np.exp(-((self.X - 0.5)**2 + (self.Y)**2)/0.035)
+        
+        return S.reshape(self.N_x * self.N_y)
+    
     def RHS_function(self, u):
         
-        return (self.A_dif + self.A_adv).dot(u)
+        return (self.A_dif).dot(u)
     
     def RHS_phi(self, u):
         
         ###? Time-independent source
-        S = 0.1 + 30*np.exp(-((self.X - 0.5)**2 + (self.Y - 0.5)**2)/0.035)
+        S = 0.1 + 30*np.exp(-((self.X + 0.75)**2 + (self.Y - 0.75)**2)/0.025) \
+                + 20*np.exp(-((self.X - 0.75)**2 + (self.Y + 0.8)**2)/0.025)
+
     
         return self.RHS_function(u) + S.reshape(self.N_x * self.N_y)
     
@@ -60,9 +68,9 @@ class Integrate(initial_distribution):
         ###? *args[0] = time
         
         ###? Time-dependent source
-        S1 = 10 * np.exp(-((self.X - 0.5)**2 + (self.Y - 0.5)**2)/0.015) * np.exp(-10 * abs(2.0 - args[0]))
-        S2 = 3 * np.exp(-(self.X**2 + (self.Y + 0.3)**2)/0.025) * np.exp(-7 * abs(5.0 - args[0]))
-        S3 = 7 * np.exp(-((self.X + 0.5)**2 + (self.Y + 0.9)**2)/0.02) * np.exp(-5 * args[0])
+        S1 = 10 * np.exp(-((self.X - 0.65)**2 + (self.Y - 0.65)**2)/0.015) * np.exp(-10 * abs(0.1 - args[0]))
+        S2 = 3 * np.exp(-(self.X**2 + (self.Y + 0.3)**2)/0.025) * np.exp(-7 * abs(0.25 - args[0]))
+        S3 = 5 * np.exp(-((self.X + 0.8)**2 + (self.Y + 0.6)**2)/0.02) * np.exp(-5 * abs(0.3 - args[0]))
     
         return self.RHS_function(u) + (S1 + S2 + S3).reshape(self.N_x * self.N_y)
         
@@ -139,11 +147,11 @@ class Integrate(initial_distribution):
             return u_sol, num_rhs_calls
         
         elif integrator == "IMEX_Euler":
-            u_sol, num_rhs_calls, cost = IMEX_Euler(u, dt, self.A_dif, self.Laplacian, tol)
+            u_sol, num_rhs_calls = IMEX_Euler(u, dt, self.A_dif, self.Laplacian, tol)
             return u_sol, num_rhs_calls
         
         elif integrator == "Crank_Nicolson":
-            u_sol, num_rhs_calls, cost = Crank_Nicolson(u, dt, self.A_dif, tol)
+            u_sol, num_rhs_calls = Crank_Nicolson(u, dt, self.A_dif + self.A_adv, tol, self.TIS(), self.TIS())
             return u_sol, num_rhs_calls
         
         elif integrator == "ARK2":
@@ -271,7 +279,7 @@ class Integrate(initial_distribution):
             time_steps = time_steps + 1
             u = u_sol.copy()
             
-            if time_steps%100 == 0:
+            if time_steps%10000 == 0:
                 print("Time elapsed: ", time)
                 print("Max value: ", np.max(u))
                 print("Min value: ", np.min(u))
@@ -321,7 +329,7 @@ class Integrate(initial_distribution):
         max_t = '{:1.2f}'.format(self.tmax)
         emax = '{:5.1e}'.format(self.error_tol)
         
-        direc_1 = os.path.expanduser("~/PrJD/AniDiff_Source_Data/Constant/Ring/Diff_Adv/" + str(integrator))
+        direc_1 = os.path.expanduser("../AniDiff_Source_Data/Constant/Spiral_2/Diff_Source/" + str(integrator))
         direc_2 = os.path.expanduser(direc_1 + "/N_" + str(n_x) + "/T_" + str(max_t))
         path = os.path.expanduser(direc_2 + "/dt_" + str(dt_value) + "_CFL/tol " + str(emax) + "/")
         
