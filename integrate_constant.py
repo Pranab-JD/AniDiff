@@ -47,7 +47,7 @@ class Integrate(initial_distribution):
     def TIS(self):
         
         S = 0.1 + 30*np.exp(-((self.X + 0.6)**2 + (self.Y - 0.75)**2)/0.025) \
-                + 25*np.exp(-((self.X - 0.75)**2 + (self.Y + 0.8)**2)/0.025)
+                + 40*np.exp(-((self.X - 0.75)**2 + (self.Y + 0.8)**2)/0.03)
         
         return S.reshape(self.N_x * self.N_y)
     
