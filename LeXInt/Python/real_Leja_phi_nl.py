@@ -61,7 +61,8 @@ def real_Leja_phi_nl(dt, RHS_function, interp_function, c, Gamma, Leja_X, phi_fu
         polynomial = polynomial + (poly_coeffs[ii] * y)
         
         ###? If new term to be added < tol, break loop; safety factor = 0.1
-        if  poly_error < 0.1*tol*np.linalg.norm(polynomial) + tol:
+        if  poly_error < (0.1*tol*np.linalg.norm(polynomial) + tol):
+            # print(ii, poly_error)
             break
         
         ###! Warning flags

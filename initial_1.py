@@ -21,7 +21,7 @@ class initial_distribution(Computational_Domain_2D):
         ### ==================================================== ###
         
         ###? Crouseilles et al. 2015
-        u_init = 0.1 + 10*np.exp(-((self.X + 0.6)**2 + self.Y**2)/(0.025))
+        u_init = 0.1 + 10*np.exp(-((self.X + 0.6)**2 + self.Y**2)/(0.04))
         
         ### Paper I 0.04
         

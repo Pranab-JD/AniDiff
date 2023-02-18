@@ -58,8 +58,8 @@ class Computational_Domain_2D:
         
         
         ### Advection velocity
-        self.velocity_x = 1
-        self.velocity_y = 1
+        self.velocity_x = 0.1
+        self.velocity_y = 0.1
         
         ### CFL condition
         self.dif_cfl = (self.dx**2 * self.dy**2)/(2*(self.dx**2 + self.dy**2))

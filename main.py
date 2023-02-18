@@ -20,21 +20,19 @@ startTime = datetime.now()
 ### ============================================================================ ###
 
 ### Parameters
-tmax_list = [0.7]
-N_list = [2**8]
+tmax_list = [1.00]
+N_list = [2**9]
 # N_list = [2**8]
 
-cfl_list = [100000]
+cfl_list = [10000]
 # cfl_list = [10]
 
-tol_list = [1e-3, 1e-4, 1e-5, 1e-6, 1e-7]
+# tol_list = [1e-3, 1e-4, 1e-5, 1e-6, 1e-7]
 # tol_list = [1e-12, 1e-11, 1e-10, 1e-9, 1e-8]
 
-# tol_list = [1e-3, 1e-4, 1e-5]
-# tol_list = [1e-6, 1e-7, 1e-8]
-# tol_list = [1e-9, 1e-10]
+tol_list = [1e-8, 1e-9, 1e-10]
 # tol_list = [1e-11, 1e-12]
-# tol_list = [1e-5]
+# tol_list = [1e-14]
 
 for N in N_list:
     for tmax in tmax_list:
