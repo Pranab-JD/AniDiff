@@ -45,7 +45,7 @@ class Computational_Domain_2D:
     def initialize_parameters(self):
         
         ### Diffusion Coefficients
-        self.D_xx = (self.X + 4*self.Y)**2
+        self.D_xx = self.Y**2
         # self.D_xy = 0.5
         # self.D_yx = 0.5
         self.D_yy = self.X**2
@@ -116,7 +116,7 @@ class Computational_Domain_2D:
         ### ------------------------------------------------- ###
         
         ### Space dependent diffusion coefficients
-        self.Dif_x = self.Dif_x.multiply(self.X + 4*self.Y)
+        self.Dif_x = self.Dif_x.multiply(self.Y)
         self.Dif_y = self.Dif_y.multiply(-self.X)
         
         ### ------------------------------------------------- ###

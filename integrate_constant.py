@@ -53,15 +53,15 @@ class Integrate(initial_distribution):
     
     def TDS(self, t):
             
-        S1 = 10 * np.exp(-((self.X - 0.65)**2 + (self.Y - 0.65)**2)/0.015) * np.exp(-10 * abs(0.1 - t))
-        # S2 =  3 * np.exp(-(self.X**2 + (self.Y + 0.3)**2)/0.025) * np.exp(-7 * abs(0.25 - t))
-        S3 =  7 * np.exp(-((self.X + 0.8)**2 + (self.Y + 0.6)**2)/0.025) * np.exp(-5 * abs(0.3 - t))
+        S1 = 100 * np.exp(-((self.X - 0.25)**2 + (self.Y - 0.25)**2)/0.015) * np.exp(-10 * abs(0.1 - t))
+        S2 =  70 * np.exp(-((self.X - 0.4)**2  + (self.Y + 0.4)**2)/0.025)  * np.exp(-5 * abs(0.3 - t))
+        S3 =  50 * np.exp(-((self.X + 0.6)**2  + (self.Y - 0.6)**2)/0.015)  * np.exp(-7.5 * abs(0.6 - t))
         
-        return (S1 + S3).reshape(self.N_x * self.N_y)
+        return (S1 + S2 + S3).reshape(self.N_x * self.N_y)
     
     def RHS_function(self, u):
         
-        return (self.A_dif + self.A_adv).dot(u)
+        return self.A_dif.dot(u)
     
     def RHS_phi(self, u):
         
@@ -69,7 +69,7 @@ class Integrate(initial_distribution):
         S = 0.1 + 30*np.exp(-((self.X + 0.6)**2 + (self.Y - 0.75)**2)/0.025) \
                 + 40*np.exp(-((self.X - 0.75)**2 + (self.Y + 0.8)**2)/0.03)
 
-    
+
         return self.RHS_function(u) + S.reshape(self.N_x * self.N_y)
     
     def RHS_phi_Euler(self, u, *args):
@@ -77,22 +77,22 @@ class Integrate(initial_distribution):
         ###? *args[0] = time
         
         ###? Time-dependent source
-        S1 = 10 * np.exp(-((self.X - 0.65)**2 + (self.Y - 0.65)**2)/0.015) * np.exp(-10 * abs(0.1 - args[0]))
-        # S2 = 3 * np.exp(-(self.X**2 + (self.Y + 0.3)**2)/0.02) * np.exp(-15 * abs(0.25 - args[0]))
-        S3 = 7 * np.exp(-((self.X + 0.8)**2 + (self.Y + 0.6)**2)/0.025) * np.exp(-5 * abs(0.3 - args[0]))
+        S1 = 100 * np.exp(-((self.X - 0.25)**2 + (self.Y - 0.25)**2)/0.015) * np.exp(-10 * abs(0.1 - args[0]))
+        S2 =  70 * np.exp(-((self.X - 0.4)**2  + (self.Y + 0.4)**2)/0.025)  * np.exp(-5 * abs(0.3 - args[0]))
+        S3 =  50 * np.exp(-((self.X + 0.6)**2  + (self.Y - 0.6)**2)/0.015)  * np.exp(-7.5 * abs(0.6 - args[0]))
     
-        return self.RHS_function(u) + (S1 + S3).reshape(self.N_x * self.N_y)
+        return self.RHS_function(u) + (S1 + S2 + S3).reshape(self.N_x * self.N_y)
         
     def RHS_phi_midpoint(self, u, dt, *args):
 
         ###? *args[0] = time
         
         ###? Time-dependent source
-        S1 = 10 * np.exp(-((self.X - 0.65)**2 + (self.Y - 0.65)**2)/0.015) * np.exp(-10 * abs(0.1 - (args[0] + dt/2)))
-        # S2 = 3 * np.exp(-(self.X**2 + (self.Y + 0.3)**2)/0.02) * np.exp(-15 * abs(0.25 - args[0]))
-        S3 = 7 * np.exp(-((self.X + 0.8)**2 + (self.Y + 0.6)**2)/0.025) * np.exp(-5 * abs(0.3 - (args[0] + dt/2)))
+        S1 = 100 * np.exp(-((self.X - 0.25)**2 + (self.Y - 0.25)**2)/0.015) * np.exp(-10 * abs(0.1 - (args[0] + dt/2)))
+        S2 =  70 * np.exp(-((self.X - 0.4)**2  + (self.Y + 0.4)**2)/0.025)  * np.exp(-5 * abs(0.3 - (args[0] + dt/2)))
+        S3 =  50 * np.exp(-((self.X + 0.6)**2  + (self.Y - 0.6)**2)/0.015)  * np.exp(-7.5 * abs(0.6 - (args[0] + dt/2)))
     
-        return self.RHS_function(u) + (S1 + S3).reshape(self.N_x * self.N_y)
+        return self.RHS_function(u) + (S1 + S2 + S3).reshape(self.N_x * self.N_y)
     
     ### ------------------------------------------------- ###
     
@@ -160,7 +160,7 @@ class Integrate(initial_distribution):
             return u_sol, num_rhs_calls
         
         elif integrator == "Crank_Nicolson":
-            u_sol, num_rhs_calls = Crank_Nicolson(u, dt, self.A_dif, tol, self.TIS(), self.TIS())
+            u_sol, num_rhs_calls = Crank_Nicolson(u, dt, self.A_dif, tol, self.TDS(*args), self.TDS(*args + dt))
             return u_sol, num_rhs_calls
         
         elif integrator == "ARK2":
@@ -187,7 +187,7 @@ class Integrate(initial_distribution):
     def run_code(self, tmax):
         
         ###! Choose the integrator
-        integrator = "Leja_phi_TIS"
+        integrator = "Leja_phi_TDS_midpoint"
         print("Integrator: ", integrator)
         print()
         
@@ -217,7 +217,7 @@ class Integrate(initial_distribution):
         
         ###? Read Leja points
         Leja_X = np.loadtxt("Leja_10000.txt")
-        # Leja_X = Leja_X[0:1000]
+        Leja_X = Leja_X[0:1000]
         
         ###? Eigenvalues (Remains constant for linear equations)
         eigen_min_dif = 0.0
@@ -338,7 +338,7 @@ class Integrate(initial_distribution):
         max_t = '{:1.2f}'.format(self.tmax)
         emax = '{:5.1e}'.format(self.error_tol)
         
-        direc_1 = os.path.expanduser("../AniDiff_Source_Data/Constant/Spiral_2/Diff_Source/" + str(integrator))
+        direc_1 = os.path.expanduser("../AniDiff_Source_Data/Constant/Ring/Diff_Source/" + str(integrator))
         direc_2 = os.path.expanduser(direc_1 + "/N_" + str(n_x) + "/T_" + str(max_t))
         path = os.path.expanduser(direc_2 + "/dt_" + str(dt_value) + "_CFL/tol " + str(emax) + "/")
         
