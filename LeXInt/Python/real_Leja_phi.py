@@ -83,7 +83,7 @@ def real_Leja_phi(u, dt, RHS_function, interp_vector, integrator_coeffs, c, Gamm
             polynomial_array[:, ij] = polynomial_array[:, ij] + (poly_coeffs[ii, ij] * y)
             
         ###? If new term to be added < tol, break loop
-        if  poly_error < tol*np.linalg.norm(polynomial) + tol:
+        if  poly_error < tol*np.linalg.norm(polynomial_array) + tol:
             convergence = 1
             print("Leja points used: ", ii)
             break

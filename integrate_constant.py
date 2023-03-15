@@ -51,11 +51,11 @@ class Integrate(initial_distribution):
         
         return S.reshape(self.N_x * self.N_y)
     
-    def TDS(self, t):
+    def TDS(self, t, dt, c):
             
-        S1 = 100 * np.exp(-((self.X - 0.25)**2 + (self.Y - 0.25)**2)/0.015) * np.exp(-10 * abs(0.1 - t))
-        S2 =  70 * np.exp(-((self.X - 0.4)**2  + (self.Y + 0.4)**2)/0.025)  * np.exp(-5 * abs(0.3 - t))
-        S3 =  50 * np.exp(-((self.X + 0.6)**2  + (self.Y - 0.6)**2)/0.015)  * np.exp(-7.5 * abs(0.6 - t))
+        S1 = 100 * np.exp(-((self.X - 0.25)**2 + (self.Y - 0.25)**2)/0.015) * np.exp(-10 * abs(0.1 - (t + c*dt)))
+        S2 =  70 * np.exp(-((self.X - 0.4)**2  + (self.Y + 0.4)**2)/0.025)  * np.exp(-5 * abs(0.3 - (t + c*dt)))
+        S3 =  50 * np.exp(-((self.X + 0.6)**2  + (self.Y - 0.6)**2)/0.015)  * np.exp(-7.5 * abs(0.6 - (t + c*dt)))
         
         return (S1 + S2 + S3).reshape(self.N_x * self.N_y)
     
@@ -64,35 +64,44 @@ class Integrate(initial_distribution):
         return self.A_dif.dot(u)
     
     def RHS_phi(self, u):
-        
+
         ###? Time-independent source
         S = 0.1 + 30*np.exp(-((self.X + 0.6)**2 + (self.Y - 0.75)**2)/0.025) \
                 + 40*np.exp(-((self.X - 0.75)**2 + (self.Y + 0.8)**2)/0.03)
 
-
         return self.RHS_function(u) + S.reshape(self.N_x * self.N_y)
     
-    def RHS_phi_Euler(self, u, *args):
+    def RHS_phi_Euler(self, u, dt, *args):
         
         ###? *args[0] = time
         
         ###? Time-dependent source
-        S1 = 100 * np.exp(-((self.X - 0.25)**2 + (self.Y - 0.25)**2)/0.015) * np.exp(-10 * abs(0.1 - args[0]))
-        S2 =  70 * np.exp(-((self.X - 0.4)**2  + (self.Y + 0.4)**2)/0.025)  * np.exp(-5 * abs(0.3 - args[0]))
-        S3 =  50 * np.exp(-((self.X + 0.6)**2  + (self.Y - 0.6)**2)/0.015)  * np.exp(-7.5 * abs(0.6 - args[0]))
+        Source = self.TDS(*args, dt, 0)
     
-        return self.RHS_function(u) + (S1 + S2 + S3).reshape(self.N_x * self.N_y)
+        return self.RHS_function(u) + Source
         
     def RHS_phi_midpoint(self, u, dt, *args):
 
         ###? *args[0] = time
         
         ###? Time-dependent source
-        S1 = 100 * np.exp(-((self.X - 0.25)**2 + (self.Y - 0.25)**2)/0.015) * np.exp(-10 * abs(0.1 - (args[0] + dt/2)))
-        S2 =  70 * np.exp(-((self.X - 0.4)**2  + (self.Y + 0.4)**2)/0.025)  * np.exp(-5 * abs(0.3 - (args[0] + dt/2)))
-        S3 =  50 * np.exp(-((self.X + 0.6)**2  + (self.Y - 0.6)**2)/0.015)  * np.exp(-7.5 * abs(0.6 - (args[0] + dt/2)))
+        Source = self.TDS(*args, dt, 1/2)
     
-        return self.RHS_function(u) + (S1 + S2 + S3).reshape(self.N_x * self.N_y)
+        return self.RHS_function(u) + Source
+    
+    def RHS_phi_Gauss(self, u, dt, *args):
+    
+        ###? *args[0] = time
+        
+        c_1 = 0.5 * (1 - 1/3**0.5)
+        c_2 = 0.5 * (1 + 1/3**0.5)
+        
+        ###? Time-dependent source
+        Source_1 = self.TDS(*args, dt, c_1) + self.TDS(*args, dt, c_2)
+        Source_2 = self.TDS(*args, dt, c_1) - self.TDS(*args, dt, c_2)
+        Source_3 = -Source_2
+    
+        return 2*self.RHS_function(u) + Source_1, Source_2, Source_3
     
     ### ------------------------------------------------- ###
     
@@ -131,7 +140,7 @@ class Integrate(initial_distribution):
         
         elif integrator == "Leja_phi_TDS_Euler":
     
-            u_sol, num_rhs_calls = real_Leja_phi_nl(dt, self.RHS_function, self.RHS_phi_Euler(u, *args)*dt, c, Gamma, Leja_X, phi_1, tol)
+            u_sol, num_rhs_calls = real_Leja_phi_nl(dt, self.RHS_function, self.RHS_phi_Euler(u, dt, *args)*dt, c, Gamma, Leja_X, phi_1, tol)
             return u + u_sol, num_rhs_calls + 1
         
         elif integrator == "Leja_phi_TDS_midpoint":
@@ -139,6 +148,16 @@ class Integrate(initial_distribution):
             u_sol, num_rhs_calls = real_Leja_phi_nl(dt, self.RHS_function, self.RHS_phi_midpoint(u, dt, *args)*dt, c, Gamma, Leja_X, phi_1, tol)
             return u + u_sol, num_rhs_calls + 1
         
+        elif integrator == "Leja_phi_TDS_Gauss":
+            
+            interp_vectors = self.RHS_phi_Gauss(u, dt, *args)
+            
+            u_1a, num_rhs_calls_1a = real_Leja_phi_nl(dt, self.RHS_function, interp_vectors[0]*dt, c, Gamma, Leja_X, phi_1, tol)
+            u_1b, num_rhs_calls_1b = real_Leja_phi_nl(dt, self.RHS_function, interp_vectors[1]*dt, c, Gamma, Leja_X, phi_1, tol)
+            u_2,  num_rhs_calls_2  = real_Leja_phi_nl(dt, self.RHS_function, interp_vectors[2]*dt, c, Gamma, Leja_X, phi_2, tol)
+            
+            return u + u_1a + ((3**0.5/2) * u_1b) + (3**0.5 * u_2), num_rhs_calls_1a + num_rhs_calls_1b + num_rhs_calls_2 + 1
+
         elif integrator == "mu_mode":
             u_sol = mu_mode(u, exp_Axx, exp_Ayy)
             return u_sol, 0
@@ -160,7 +179,7 @@ class Integrate(initial_distribution):
             return u_sol, num_rhs_calls
         
         elif integrator == "Crank_Nicolson":
-            u_sol, num_rhs_calls = Crank_Nicolson(u, dt, self.A_dif, tol, self.TDS(*args), self.TDS(*args + dt))
+            u_sol, num_rhs_calls = Crank_Nicolson(u, dt, self.A_dif, tol, self.TDS(*args, dt, 0), self.TDS(*args + dt, dt, 0))
             return u_sol, num_rhs_calls
         
         elif integrator == "ARK2":
@@ -187,7 +206,7 @@ class Integrate(initial_distribution):
     def run_code(self, tmax):
         
         ###! Choose the integrator
-        integrator = "Leja_phi_TDS_midpoint"
+        integrator = "Leja_phi_TDS_Gauss"
         print("Integrator: ", integrator)
         print()
         
@@ -198,7 +217,7 @@ class Integrate(initial_distribution):
         time = 0                                                # Time elapsed
         time_steps = 0                                          # Time steps
         u = self.initial_u().reshape(self.N_x * self.N_y)       # Reshape 2D into 1D
-        # u = u*0
+        u = u*0
         
         ############## --------------------- ##############
         
