@@ -16,9 +16,15 @@ class initial_distribution(Computational_Domain_2D):
 
     def initial_u(self):
         
-        ## Analytic test case (Crouseilles et al. 2015)
-        u_init = np.sin(np.pi * self.X) * np.sin(np.pi * self.Y)
+        u_init = np.zeros((self.N_x, self.N_y))
         
+        for ii in range(self.N_x):
+            for jj in range(self.N_y):
+                if self.X[ii, jj] > 0 and self.Y[ii, jj] > 0:    
+                    u_init[ii, jj] = 1000.0
+                else:
+                    u_init[ii, jj] = 0.0
+                    
         return u_init
         
 ### ============================================================================ ###
