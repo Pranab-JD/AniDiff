@@ -33,8 +33,8 @@ class Computational_Domain_2D:
     def initialize_spatial_domain(self):
 
 		###? Periodic boundary conditions
-        self.X = np.linspace(self.xmin, self.xmax, self.N_x, endpoint = False)
-        self.Y = np.linspace(self.ymin, self.ymax, self.N_y, endpoint = False)
+        self.X = np.linspace(self.xmin, self.xmax, self.N_x)
+        self.Y = np.linspace(self.ymin, self.ymax, self.N_y)
 
         self.dx = self.X[2] - self.X[1]
         self.dy = self.Y[2] - self.Y[1]
@@ -47,19 +47,20 @@ class Computational_Domain_2D:
         ###! ------------------------------------- !###
 
         ###! Anisotropic Diffusion Coefficients
-        self.D_x = np.ones((self.N_x, self.N_y))
-        self.D_y = 0.5*np.ones((self.N_x, self.N_y))
+        
+        # self.D_x = np.ones((self.N_x, self.N_y))
+        # self.D_y = 0.5*np.ones((self.N_x, self.N_y))
 
-        # self.D_x = self.Y
-        # self.D_y = -self.X
+        self.D_x = self.X + self.Y
+        self.D_y = -self.X
         
         ###? Ring: (self.Y, -self.X); Spiral: ((self.X + 4*self.Y), -self.X)
 
         ###! ------------------------------------- !###
         
         ###? Advection velocity
-        self.velocity_x = 1
-        self.velocity_y = 2
+        self.velocity_x = 0.1
+        self.velocity_y = 0.2
         
         ###? CFL constraints
         self.dif_cfl = (self.dx**2 * self.dy**2)/(2*(self.dx**2 + self.dy**2))
@@ -82,17 +83,17 @@ class Computational_Domain_2D:
         self.Dif_xx = lil_matrix(diags(np.ones(self.N_x - 1), -1) + diags(-2*np.ones(self.N_x), 0) + diags(np.ones(self.N_x - 1), 1))
         self.Dif_yy = lil_matrix(diags(np.ones(self.N_y - 1), -1) + diags(-2*np.ones(self.N_y), 0) + diags(np.ones(self.N_y - 1), 1))
         
-        self.Dif_x  = lil_matrix(diags(np.ones(self.N_x - 1), -1) + diags(-np.ones(self.N_x - 1), 1))
-        self.Dif_y  = lil_matrix(diags(np.ones(self.N_y - 1), -1) + diags(-np.ones(self.N_y - 1), 1))
+        self.Dif_x  = lil_matrix(diags(0.5*np.ones(self.N_x - 1), 1) + diags(-0.5*np.ones(self.N_x - 1), -1))
+        self.Dif_y  = lil_matrix(diags(0.5*np.ones(self.N_y - 1), 1) + diags(-0.5*np.ones(self.N_y - 1), -1))
         
         ###? Boundary conditions (Periodic)
-        ## Diagonal terms
-        self.Dif_xx[0, -1] = 1; self.Dif_xx[-1, 0] = 1      # (0, -1), (N-1, 0)
-        self.Dif_yy[0, -1] = 1; self.Dif_yy[-1, 0] = 1      # (0, -1), (N-1, 0)
+        # Diagonal terms
+        # self.Dif_xx[0, -1] = 1; self.Dif_xx[-1, 0] = 1      # (0, -1), (N-1, 0)
+        # self.Dif_yy[0, -1] = 1; self.Dif_yy[-1, 0] = 1      # (0, -1), (N-1, 0)
         
         ## Off-diagonal terms
-        self.Dif_x[0, -1] = 1; self.Dif_x[-1, 0] = -1       # (0, -1), (N-1, 0)
-        self.Dif_y[0, -1] = 1; self.Dif_y[-1, 0] = -1       # (0, -1), (N-1, 0)
+        # self.Dif_x[0, -1] = 1; self.Dif_x[-1, 0] = -1       # (0, -1), (N-1, 0)
+        # self.Dif_y[0, -1] = 1; self.Dif_y[-1, 0] = -1       # (0, -1), (N-1, 0)
         
         
         ###? 3rd order upwind for advection (-2/6, -3/6, 1, -1/6)
@@ -100,14 +101,14 @@ class Computational_Domain_2D:
         self.Adv_y = lil_matrix(diags(-2/6*np.ones(self.N_y - 1), -1) + diags(-3/6*np.ones(self.N_y), 0) + diags(np.ones(self.N_y - 1), 1) + diags(-1/6*np.ones(self.N_y - 2), 2))
         
         ###? Boundary conditions (Periodic)
-        self.Adv_x[-2, 0] = -1/6; self.Adv_x[-1, 0] = 1; self.Adv_x[-1, 1] = -1/6; self.Adv_x[0, -1] = -2/6
-        self.Adv_y[-2, 0] = -1/6; self.Adv_y[-1, 0] = 1; self.Adv_y[-1, 1] = -1/6; self.Adv_y[0, -1] = -2/6
+        # self.Adv_x[-2, 0] = -1/6; self.Adv_x[-1, 0] = 1; self.Adv_x[-1, 1] = -1/6; self.Adv_x[0, -1] = -2/6
+        # self.Adv_y[-2, 0] = -1/6; self.Adv_y[-1, 0] = 1; self.Adv_y[-1, 1] = -1/6; self.Adv_y[0, -1] = -2/6
 
         ###! 2D Anisotropic Diffusion Matrix
         self.A_dif = kron(identity(self.N_y).multiply((self.D_x**2).diagonal()), self.Dif_xx/self.dx**2)    \
                    + kron(self.Dif_yy/self.dy**2, identity(self.N_x).multiply((self.D_y**2).diagonal()))    \
-                   + kron(self.Dif_x.multiply(self.D_x), self.Dif_y.multiply(self.D_y))/(4*self.dx*self.dy) \
-                   + kron(self.Dif_y.multiply(self.D_y), self.Dif_x.multiply(self.D_x))/(4*self.dx*self.dy)
+                   + kron(self.Dif_x.multiply(self.D_x), self.Dif_y.multiply(self.D_y))/(2*self.dx*self.dy) \
+                   + kron(self.Dif_y.multiply(self.D_y), self.Dif_x.multiply(self.D_x))/(2*self.dx*self.dy)
 
         ###! 2D Advection Matrix
         self.A_adv = kron(identity(self.N_y), self.Adv_x*self.velocity_x/self.dx) + kron(self.Adv_y*self.velocity_y/self.dy, identity(self.N_x))

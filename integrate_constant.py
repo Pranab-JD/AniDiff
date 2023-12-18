@@ -6,7 +6,7 @@ Created on Wed Dec 3 15:46:29 2021
 Description: Temporal integration
 """
 
-import sys
+import os, sys, shutil
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.sparse import lil_matrix, kron, identity, diags
@@ -45,8 +45,8 @@ class Integrate(initial_distribution):
     ###! Time-independent sources
     def TIS(self):
         
-        S = 0.1 + 30*np.exp(-((self.X + 0.6)**2 + (self.Y - 0.75)**2)/0.025) \
-                + 40*np.exp(-((self.X - 0.75)**2 + (self.Y + 0.8)**2)/0.03)
+        S = 0.1 + 30*np.exp(-((self.X + 0.6)**2 + (self.Y - 0.75)**2)/0.002) \
+                + 40*np.exp(-((self.X - 0.75)**2 + (self.Y + 0.8)**2)/0.001)
         
         return S.reshape(self.N_x * self.N_y)
     
@@ -54,10 +54,10 @@ class Integrate(initial_distribution):
     def TDS(self, *args, c):
         
         t = args[0]; dt = args[1]
-            
-        S1 = 100 * np.exp(-((self.X - 0.25)**2 + (self.Y - 0.25)**2)/0.015) * np.exp(-10 * abs(0.1 - (t + c*dt)))
-        S2 =  70 * np.exp(-((self.X - 0.4)**2  + (self.Y + 0.4)**2)/0.025)  * np.exp(-5 * abs(0.3 - (t + c*dt)))
-        S3 =  50 * np.exp(-((self.X + 0.6)**2  + (self.Y - 0.6)**2)/0.015)  * np.exp(-7.5 * abs(0.6 - (t + c*dt)))
+
+        S1 = 40 * np.exp(-((self.X - 0.2)**2 + (self.Y - 0.3)**2)/0.001)  * np.exp(-1.2*abs(0.1 - (t + c*dt)))
+        S2 = 60 * np.exp(-((self.X + 0.0)**2 + (self.Y + 0.8)**2)/0.002)  * np.exp(-1.5*abs(0.3 - (t + c*dt)))
+        S3 = 80 * np.exp(-((self.X + 0.5)**2 + (self.Y - 0.6)**2)/0.001)  * np.exp(-2.5*abs(0.6 - (t + c*dt)))
         
         return (S1 + S2 + S3).reshape(self.N_x * self.N_y)
     
@@ -66,16 +66,12 @@ class Integrate(initial_distribution):
     ###! RHS function (MAIN)
     def RHS_function(self, u):
         
-        return (self.A_dif).dot(u)
+        return (self.A_dif + self.A_adv).dot(u)
     
     ###! RHS function (time-independent sources)
-    def RHS_phi(self, u):
+    def RHS_TIS(self, u):
 
-        ###? Time-independent source
-        S = 0.1 + 30*np.exp(-((self.X + 0.6)**2 + (self.Y - 0.75)**2)/0.025) \
-                + 40*np.exp(-((self.X - 0.75)**2 + (self.Y + 0.8)**2)/0.03)
-
-        return self.RHS_function(u) + S.reshape(self.N_x * self.N_y)
+        return self.RHS_function(u) + self.TIS()
     
     ###! RHS function (explicit solvers)
     def RHS_explicit(self, u, *args):
@@ -87,22 +83,19 @@ class Integrate(initial_distribution):
     
     ###! RHS function (exponential quadrature solvers)
     def RHS_Euler(self, u, *args):
-               
-        ###? Time-dependent source
+
         Source = self.TDS(*args, c = 0)
         
         return self.RHS_function(u) + Source
         
     def RHS_midpoint(self, u, *args):
 
-        ###? Time-dependent source
         Source = self.TDS(*args, c = 1/2)
     
         return self.RHS_function(u) + Source
     
     def RHS_trapezoidal(self, u, *args):
         
-        ###? Time-dependent source
         Source_n  = self.TDS(*args, c = 0)
         Source_n1 = self.TDS(*args, c = 1)
     
@@ -113,7 +106,6 @@ class Integrate(initial_distribution):
         c_1 = 0.5 * (1 - 1/3**0.5)
         c_2 = 0.5 * (1 + 1/3**0.5)
         
-        ###? Time-dependent sources
         Source_1 = ((3**0.5 + 1)/2) * self.TDS(*args, c = c_1) + ((1 - 3**0.5)/2) * self.TDS(*args, c = c_2)
         Source_2 = self.TDS(*args, c = c_2) - self.TDS(*args, c = c_1)
 
@@ -154,30 +146,32 @@ class Integrate(initial_distribution):
         ###? Jacobian function for augmented matrix
         Jac_vec_dt = lambda z: dt * Jacobian(self.RHS_function, u, z, self.RHS_function(u))
         
+        ### ----------------------###
+        
         if integrator == "Leja_exp":
-            u_sol, num_rhs_calls, substeps = real_Leja_linear_exp(u, dt, substeps, Jac_vec_dt, c, Gamma, Leja_X, tol)
+            u_sol, num_rhs_calls, substeps = real_Leja_linear_exp(u, dt, substeps, Jac_vec_dt, 1, c, Gamma, Leja_X, tol)
             return u_sol, num_rhs_calls+1, substeps
 
         elif integrator == "Exponential_TIS":
-            u_flux, num_rhs_calls, substeps = linear_phi([zero_vec, self.RHS_TIS(u)*dt], dt, substeps, Jac_vec_dt, c, Gamma, Leja_X, tol)
+            u_flux, num_rhs_calls, substeps = linear_phi([zero_vec, self.RHS_TIS(u)*dt], dt, substeps, Jac_vec_dt, 1, c, Gamma, Leja_X, tol)
             return u + u_flux, num_rhs_calls+1, substeps
         
         elif integrator == "Exponential_Euler":
-            u_flux, num_rhs_calls, substeps = linear_phi([zero_vec, self.RHS_Euler(u, *args)*dt], dt, substeps, Jac_vec_dt, c, Gamma, Leja_X, tol)
+            u_flux, num_rhs_calls, substeps = linear_phi([zero_vec, self.RHS_Euler(u, *args)*dt], dt, substeps, Jac_vec_dt, 1, c, Gamma, Leja_X, tol)
             return u + u_flux, num_rhs_calls+1, substeps
         
         elif integrator == "Exponential_midpoint":
-            u_flux, num_rhs_calls, substeps = linear_phi([zero_vec, self.RHS_midpoint(u, *args)*dt], dt, substeps, Jac_vec_dt, c, Gamma, Leja_X, tol)
+            u_flux, num_rhs_calls, substeps = linear_phi([zero_vec, self.RHS_midpoint(u, *args)*dt], dt, substeps, Jac_vec_dt, 1, c, Gamma, Leja_X, tol)
             return u + u_flux, num_rhs_calls+1, substeps
         
         elif integrator == "Exponential_trapezoidal":
             interp_vectors = self.RHS_trapezoidal(u, *args)
-            u_flux, num_rhs_calls, substeps = linear_phi([zero_vec, interp_vectors[0]*dt, interp_vectors[1]*dt], dt, substeps, Jac_vec_dt, c, Gamma, Leja_X, tol)
+            u_flux, num_rhs_calls, substeps = linear_phi([zero_vec, interp_vectors[0]*dt, interp_vectors[1]*dt], dt, substeps, Jac_vec_dt, 1, c, Gamma, Leja_X, tol)
             return u + u_flux, num_rhs_calls+1, substeps
         
         elif integrator == "Exponential_Gauss":
             interp_vectors = self.RHS_Gauss(u, *args)
-            u_flux, num_rhs_calls, substeps = linear_phi([zero_vec, interp_vectors[0]*dt, 3**0.5*interp_vectors[1]*dt], dt, substeps, Jac_vec_dt, c, Gamma, Leja_X, tol)
+            u_flux, num_rhs_calls, substeps = linear_phi([zero_vec, interp_vectors[0]*dt, 3**0.5*interp_vectors[1]*dt], dt, substeps, Jac_vec_dt, 1, c, Gamma, Leja_X, tol)
             return u + u_flux, num_rhs_calls+1, substeps
 
         elif integrator == "mu_mode":
@@ -186,23 +180,23 @@ class Integrate(initial_distribution):
         
         elif integrator == "RK2":
             u_sol, num_rhs_calls = RK2(self.RHS_function, u, dt)
-            return u_sol, num_rhs_calls
+            return u_sol, num_rhs_calls, 1
         
         elif integrator == "RK4":
             u_sol, num_rhs_calls = RK4(self.RHS_explicit, u, dt, *args)
-            return u_sol, num_rhs_calls
+            return u_sol, num_rhs_calls, 1
         
         elif integrator == "RKF45":
             u_sol, num_rhs_calls = RKF45(self.RHS_function, u, dt)
-            return u_sol, num_rhs_calls
+            return u_sol, num_rhs_calls, 1
         
         elif integrator == "IMEX_Euler":
             u_sol, num_rhs_calls = IMEX_Euler(u, dt, self.A_dif, self.Laplacian, tol)
-            return u_sol, num_rhs_calls
+            return u_sol, num_rhs_calls, 1
         
-        elif integrator == "Crank_Nicolson":
-            u_sol, num_rhs_calls = Crank_Nicolson(u, dt, self.A_dif + self.A_adv, tol, self.TDS(*args, c = 0), self.TDS(args[0] + dt, args[1], c = 0))
-            return u_sol, num_rhs_calls
+        elif integrator == "CN":
+            u_sol, num_rhs_calls = Crank_Nicolson(u, dt, self.A_dif + self.A_adv, tol, self.TDS(*args, c = 0), self.TDS(args[0] + dt, dt, c = 0))
+            return u_sol, num_rhs_calls, 1
         
         elif integrator == "ARK2":
             u_sol, num_rhs_calls, c2, c3 = ARK2(u, dt, self.A_dif, self.Laplacian, tol)
@@ -222,14 +216,13 @@ class Integrate(initial_distribution):
  
         else:
             print("Please choose proper integrator.")
-            
-    ### ============================================================================ ###
+
     ### ============================================================================ ###
 
     def run_code(self, tmax):
         
         ###! Choose the integrator
-        integrator = "Leja_exp"
+        integrator = "Exponential_trapezoidal"
         print("Integrator: ", integrator)
         print()
         
@@ -241,13 +234,13 @@ class Integrate(initial_distribution):
         time_steps = 0                                          # Time steps
         
         ###! Initial condition
-        u = self.initial_u().reshape(self.N_x * self.N_y)     # Reshape 2D into 1D
-        # u = np.ones((self.N_x * self.N_y)) * 1e-2
+        # u = self.initial_u().reshape(self.N_x * self.N_y)     # Reshape 2D into 1D
+        u = np.ones((self.N_x * self.N_y)) * 1e-5
         
         ############## --------------------- ##############
         
         ###! Write data to files for movie
-        # path = os.path.expanduser("~/PrJD/AniDiff Data Sets/Movie/Ring/")
+        # path = os.path.expanduser("~/PrJD/AniDiff_Data/Movie/Ring/")
         
         # if os.path.exists(path):
         #     shutil.rmtree(path)                                 # remove previous directory with same name
@@ -272,7 +265,7 @@ class Integrate(initial_distribution):
         Gamma = 0.25 * (eigen_min_dif - eigen_max_dif)
 
         ###? Initial guess for substeps
-        substeps = 2
+        substeps = 1
         
         ############## --------------------- ##############
         
@@ -285,22 +278,23 @@ class Integrate(initial_distribution):
             ############# --------------------- ##############
 
             ###? Test plots
-            plt.imshow(u.reshape(self.N_x, self.N_y), origin = 'lower', cmap = plt.cm.seismic, 
-                       extent = [self.xmin, self.xmax, self.ymin, self.ymax], aspect = 'equal')
+            # plt.subplot(1, 3, 1)
+            # plt.imshow(u.reshape(self.N_x, self.N_y), origin = 'lower', cmap = plt.cm.seismic, extent = [self.xmin, self.xmax, self.ymin, self.ymax], aspect = 'equal')
+            
+            # plt.subplot(1, 3, 2)
+            # plt.plot(self.X[1, :], u.reshape(self.N_x, self.N_y)[:, int(self.N_x/2)], "b-")
+            
+            # plt.subplot(1, 3, 3)
+            # plt.plot(self.Y[:, 1], u.reshape(self.N_x, self.N_y)[int(self.N_y/2), :], "b-")
 
-            # for ii in range(self.N_x):
-            #     for jj in range(self.N_y):
-            #         if u.reshape(self.N_x, self.N_y)[ii, jj] < 0:
-            #             plt.plot(self.X[ii, ii], self.Y[jj, jj], "r.")
+            # # # ax = plt.axes(projection = '3d')
+            # # # ax.grid(False)
+            # # # ax.view_init(elev = 30, azim = 60)
+            # # # ax.plot_surface(self.X, self.Y, u.reshape(self.N_y, self.N_x), cmap = 'seismic', edgecolor = 'none')
 
-            # # ax = plt.axes(projection = '3d')
-            # # ax.grid(False)
-            # # ax.view_init(elev = 30, azim = 60)
-            # # ax.plot_surface(self.X, self.Y, u.reshape(self.N_y, self.N_x), cmap = 'seismic', edgecolor = 'none')
-
-            plt.colorbar()
-            plt.pause(0.5)
-            plt.clf()
+            # plt.colorbar()
+            # plt.pause(0.5)
+            # plt.clf()
 
             ############# --------------------- ##############
             
@@ -340,8 +334,8 @@ class Integrate(initial_distribution):
             time_steps = time_steps + 1
             u = u_sol.copy()
 
-            min_u = np.unravel_index(u.argmin(), u.shape)
-            print("Min value: ", np.min(u))
+            # min_u = np.unravel_index(u.argmin(), u.shape)
+            # print("Min value: ", np.min(u))
             
             if time_steps%100 == 0:
                 print()
@@ -366,42 +360,42 @@ class Integrate(initial_distribution):
         tol_time = datetime.now() - tolTime
 
         print("\n----------------------------")
-        print("RHS calls    : ", np.sum(cost_array))
-        print("Time elapsed : ", str(tol_time))
-        print("Time steps   : ", time_steps)
-        print("Minimum value: ", np.min(u))
+        print("RHS calls       : ", np.sum(cost_array))
+        print("Time elapsed    : ", str(tol_time))
+        print("Time steps      : ", time_steps)
+        print("Simulation time : ", time)
+        print("Minimum value   : ", np.min(u))
         print("----------------------------\n")
         
         ### ============================================================================ ###
         
         ###! Create directories
-        # dt_value = '{:0.0f}'.format(self.N_cfl)
-        # n_x = '{:2.0f}'.format(self.N_x); n_y = '{:2.0f}'.format(self.N_y)
-        # max_t = '{:1.2f}'.format(self.tmax)
-        # emax = '{:5.1e}'.format(self.error_tol)
+        dt_value = '{:0.0f}'.format(self.N_cfl)
+        n_x = '{:2.0f}'.format(self.N_x); n_y = '{:2.0f}'.format(self.N_y)
+        max_t = '{:1.2f}'.format(self.tmax)
+        emax = '{:5.1e}'.format(self.error_tol)
         
-        # direc_1 = os.path.expanduser("../AniDiff_Source_Data/Constant/Spiral_2_DAS/" + str(integrator))
-        # direc_2 = os.path.expanduser(direc_1 + "/N_" + str(n_x) + "/T_" + str(max_t))
-        # path = os.path.expanduser(direc_2 + "/dt_" + str(dt_value) + "_CFL/tol " + str(emax) + "/")
+        direc_1 = os.path.expanduser("../AniDiff_Data/Spiral_2/TDS/" + str(integrator))
+        direc_2 = os.path.expanduser(direc_1 + "/N_" + str(n_x) + "/T_" + str(max_t))
+        path = os.path.expanduser(direc_2 + "/dt_" + str(dt_value) + "_CFL/tol " + str(emax) + "/")
         
-        # if os.path.exists(path):
-        #     shutil.rmtree(path)                                 # remove previous directory with same name
-        # os.makedirs(path, 0o777)                                # create directory with access rights
+        if os.path.exists(path):
+            shutil.rmtree(path)                                 # remove previous directory with same name
+        os.makedirs(path, 0o777)                                # create directory with access rights
             
-        # ###! Write final data to file
-        # file_final = open(path + "Final_data.txt", 'w+')
-        # np.savetxt(file_final, u.reshape(self.N_y, self.N_x), fmt = '%.25f')
-        # file_final.close()
+        ###! Write final data to file
+        file_final = open(path + "Final_data.txt", 'w+')
+        np.savetxt(file_final, u.reshape(self.N_y, self.N_x), fmt = '%.25f')
+        file_final.close()
         
-        # ###! Write simulation results to file
-        # file_res = open(path + '/Results.txt', 'w+')
-        # file_res.write("Time elapsed (secs): %s" % str(tol_time) + "\n" + "\n")
-        # file_res.write("Number of matrix-vector products = %d" % np.sum(cost_array) + "\n" + "\n")
-        # file_res.write("dt:" + "\n")
-        # file_res.write(' '.join(map(str, dt_array)) % dt_array + "\n" + "\n")
-        # file_res.write("Time:" + "\n")
-        # file_res.write(' '.join(map(str, time_array)) % time_array + "\n" + "\n")
-        # file_res.close()
+        ###! Write simulation results to file
+        file_res = open(path + '/Results.txt', 'w+')
+        file_res.write("Time elapsed (secs): %s" % str(tol_time) + "\n" + "\n")
+        file_res.write("Number of matrix-vector products = %d" % np.sum(cost_array) + "\n" + "\n")
+        file_res.write("dt:" + "\n")
+        file_res.write(' '.join(map(str, dt_array)) % dt_array + "\n" + "\n")
+        file_res.write("Time:" + "\n")
+        file_res.write(' '.join(map(str, time_array)) % time_array + "\n" + "\n")
+        file_res.close()
         
-### ============================================================================ ###
 ### ============================================================================ ###

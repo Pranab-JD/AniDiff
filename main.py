@@ -13,37 +13,39 @@ startTime = datetime.now()
 ### ============================================================================ ###
 
 ###! Parameters
-tmax_list = [0.75]
-N_list = [2**8]
+
+### Spiral 1 = (X + 4Y, -X), T = 0.6, 1.0, 3.0
+### Spiral 2 = (X + Y,  -X), T = 0.6, 1.0, 3.0
+
+tmax_list = [3.0]
 
 cfl_list = [1000]
 
-# tol_list = [1e-4, 1e-5, 1e-6, 1e-7]
-# tol_list = [1e-8, 1e-9, 1e-10]
+tol_list = [1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10]
 
-tol_list = [1e-8]
+# tol_list = [1e-12]
 
-for N in N_list:
-    for tmax in tmax_list:
-        for n_cfl in cfl_list:
-            for tol in tol_list:
+N = 2**8
 
-                ### Object initialization
-                run = Integrate(N, N, tmax, n_cfl, tol)
+for tmax in tmax_list:
+    for n_cfl in cfl_list:
+        for tol in tol_list:
 
-                def main():
-                    run.run_code(tmax)
-                    
-                if __name__ == "__main__":
-                    main()
+            ### Object initialization
+            run = Integrate(N, N, tmax, n_cfl, tol)
+
+            def main():
+                run.run_code(tmax)
+                
+            if __name__ == "__main__":
+                main()
 
 
 ### ============================================================================ ###
 
-print()
-print("==============================================")
-print()
 print('Total Time Elapsed = ', datetime.now() - startTime)
 print()
 print("Wall-clock time: ", datetime.now())
+print()
+print("====================================================================")
 print()
