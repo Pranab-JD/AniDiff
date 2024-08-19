@@ -32,6 +32,9 @@ def IMEX_Euler(u, dt, A, Laplacian, tol):
 
 def Crank_Nicolson(u, dt, A, tol, *args):
     
-    u, iters = GMRES(identity(A.shape[0]) - 0.5*dt*A, u + 0.5*dt*A.dot(u) + 0.5*dt*(args[0] + args[1]), u, tol)
+    if args:
+        u, iters = CG(identity(A.shape[0]) - 0.5*dt*A, u + 0.5*dt*A.dot(u) + 0.5*dt*(args[0] + args[1]), u, tol)
+    else:
+        u, iters = CG(identity(A.shape[0]) - 0.5*dt*A, u + 0.5*dt*A.dot(u), u, tol)
     
     return u[0], iters + 1
