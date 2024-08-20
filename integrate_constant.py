@@ -18,8 +18,8 @@ from datetime import datetime
 ### Choose the required initial conditions
 # from initial_1 import *       # Ring
 # from initial_2 import *       # Band
-from initial_3 import *       # Square
-# from initial_4 import *       # Gaussian
+# from initial_3 import *       # Square
+from initial_4 import *       # Gaussian
 
 ###! Import LeXInt
 sys.path.insert(1, "../LeXInt/Python/")
@@ -45,8 +45,8 @@ class Integrate(initial_distribution):
     ###! Time-independent sources
     def TIS(self):
         
-        S = 0.1 + 30*np.exp(-((self.X + 0.6)**2 + (self.Y - 0.75)**2)/0.002) \
-                + 40*np.exp(-((self.X - 0.75)**2 + (self.Y + 0.8)**2)/0.001)
+        S = 0.1 + 30*np.exp(-((self.X + 0.6)**2 + (self.Y - 0.75)**2)/0.005) \
+                + 40*np.exp(-((self.X - 0.75)**2 + (self.Y + 0.8)**2)/0.006)
         
         return S.reshape(self.N_x * self.N_y)
     
@@ -55,9 +55,9 @@ class Integrate(initial_distribution):
         
         t = args[0]; dt = args[1]
 
-        S1 = 40 * np.exp(-((self.X - 0.2)**2 + (self.Y - 0.3)**2)/0.001)  * np.exp(-1.2*abs(0.1 - (t + c*dt)))
-        S2 = 60 * np.exp(-((self.X + 0.0)**2 + (self.Y + 0.8)**2)/0.002)  * np.exp(-1.5*abs(0.3 - (t + c*dt)))
-        S3 = 80 * np.exp(-((self.X + 0.5)**2 + (self.Y - 0.6)**2)/0.001)  * np.exp(-2.5*abs(0.6 - (t + c*dt)))
+        S1 = 40 * np.exp(-((self.X - 0.2)**2 + (self.Y - 0.3)**2)/0.004)  * np.exp(-1.7*abs(0.1 - (t + c*dt)))
+        S2 = 60 * np.exp(-((self.X + 0.0)**2 + (self.Y + 0.8)**2)/0.006)  * np.exp(-1.5*abs(0.3 - (t + c*dt)))
+        S3 = 80 * np.exp(-((self.X + 0.5)**2 + (self.Y - 0.6)**2)/0.005)  * np.exp(-1.8*abs(0.6 - (t + c*dt)))
         
         return (S1 + S2 + S3).reshape(self.N_x * self.N_y)
     
@@ -66,7 +66,7 @@ class Integrate(initial_distribution):
     ###! RHS function (MAIN)
     def RHS_function(self, u):
         
-        return (self.A_dif + self.A_adv).dot(u)
+        return (self.A_dif).dot(u)
     
     ###! RHS function (time-independent sources)
     def RHS_TIS(self, u):
@@ -146,11 +146,12 @@ class Integrate(initial_distribution):
         ###? Jacobian function for augmented matrix
         Jac_vec_dt = lambda z: dt * Jacobian(self.RHS_function, u, z, self.RHS_function(u))
         
-        ### ----------------------###
+        ###* ---------------------- *###
         
         if integrator == "Leja_exp":
             u_sol, num_rhs_calls, substeps = real_Leja_linear_exp(u, dt, substeps, Jac_vec_dt, 1, c, Gamma, Leja_X, tol)
-            return u_sol, num_rhs_calls+1, substeps
+            # u_sol, num_rhs_calls = real_Leja_exp(u, dt, self.RHS_function, c, Gamma, Leja_X, tol)
+            return u_sol, num_rhs_calls, substeps
 
         elif integrator == "Exponential_TIS":
             u_flux, num_rhs_calls, substeps = linear_phi([zero_vec, self.RHS_TIS(u)*dt], dt, substeps, Jac_vec_dt, 1, c, Gamma, Leja_X, tol)
@@ -196,15 +197,17 @@ class Integrate(initial_distribution):
         
         elif integrator == "CN":
             u_sol, num_rhs_calls = Crank_Nicolson(u, dt, self.A_dif + self.A_adv, tol, self.TDS(*args, c = 0), self.TDS(args[0] + dt, dt, c = 0))
+            # u_sol, num_rhs_calls = Crank_Nicolson(u, dt, self.A_dif, tol)
             return u_sol, num_rhs_calls, 1
         
         elif integrator == "ARK2":
-            u_sol, num_rhs_calls, c2, c3 = ARK2(u, dt, self.A_dif, self.Laplacian, tol)
-            return u_sol, num_rhs_calls
+            u_sol, num_rhs_calls = ARK2(u, dt, self.A_dif + self.A_adv, 0.9, 0.1, tol, self.TDS(*args, c = 0), self.TDS(args[0] + dt, dt, c = 0))
+            return u_sol, num_rhs_calls, 1
         
+        ## TODO: Modify according to ARK2 
         elif integrator == "ARK4":
             u_sol, num_rhs_calls = ARK4(u, dt, self.A_dif, self.Laplacian, tol)
-            return u_sol, num_rhs_calls
+            return u_sol, num_rhs_calls, 1
         
         elif integrator == "ETD1":
             u_sol, num_rhs_calls = ETD1(u, dt, self.Linear, self.RHS_function, c, Gamma, Leja_X, tol)
@@ -220,9 +223,9 @@ class Integrate(initial_distribution):
     ### ============================================================================ ###
 
     def run_code(self, tmax):
-        
+
         ###! Choose the integrator
-        integrator = "Exponential_trapezoidal"
+        integrator = "Leja_exp"
         print("Integrator: ", integrator)
         print()
         
@@ -234,8 +237,8 @@ class Integrate(initial_distribution):
         time_steps = 0                                          # Time steps
         
         ###! Initial condition
-        # u = self.initial_u().reshape(self.N_x * self.N_y)     # Reshape 2D into 1D
-        u = np.ones((self.N_x * self.N_y)) * 1e-5
+        u = self.initial_u().reshape(self.N_x * self.N_y)     # Reshape 2D into 1D
+        # u = np.ones((self.N_x * self.N_y)) * 1e-5
         
         ############## --------------------- ##############
         
@@ -254,11 +257,12 @@ class Integrate(initial_distribution):
         
         ###? Read Leja points
         Leja_X = np.loadtxt("Leja_10000.txt")
-        Leja_X = Leja_X[0:1000]
-        
+        # Leja_X = Leja_X[0:1000]
+
         ###? Eigenvalues (Remains constant for linear equations)
         eigen_min_dif = 0.0
         eigen_max_dif, _ = Gershgorin(self.A_dif)      # Max real, imag eigenvalue
+        print("Largest eigenvalue: ", eigen_max_dif)
         
         ###? Scaling and shifting factors
         c = 0.5 * (eigen_max_dif + eigen_min_dif)
@@ -269,7 +273,7 @@ class Integrate(initial_distribution):
         
         ############## --------------------- ##############
         
-        ### Start timer
+        ###? Start timer
         tolTime = datetime.now()
         
         ###!! Time loop !!###
@@ -278,23 +282,23 @@ class Integrate(initial_distribution):
             ############# --------------------- ##############
 
             ###? Test plots
-            # plt.subplot(1, 3, 1)
-            # plt.imshow(u.reshape(self.N_x, self.N_y), origin = 'lower', cmap = plt.cm.seismic, extent = [self.xmin, self.xmax, self.ymin, self.ymax], aspect = 'equal')
+            # # plt.subplot(1, 3, 1)
+            plt.imshow(u.reshape(self.N_x, self.N_y), origin = 'lower', cmap = plt.cm.seismic, extent = [self.xmin, self.xmax, self.ymin, self.ymax], aspect = 'equal')
             
-            # plt.subplot(1, 3, 2)
-            # plt.plot(self.X[1, :], u.reshape(self.N_x, self.N_y)[:, int(self.N_x/2)], "b-")
+            # # plt.subplot(1, 3, 2)
+            # # plt.plot(self.X[1, :], u.reshape(self.N_x, self.N_y)[:, int(self.N_x/2)], "b-")
             
-            # plt.subplot(1, 3, 3)
-            # plt.plot(self.Y[:, 1], u.reshape(self.N_x, self.N_y)[int(self.N_y/2), :], "b-")
+            # # plt.subplot(1, 3, 3)
+            # # plt.plot(self.Y[:, 1], u.reshape(self.N_x, self.N_y)[int(self.N_y/2), :], "b-")
 
-            # # # ax = plt.axes(projection = '3d')
-            # # # ax.grid(False)
-            # # # ax.view_init(elev = 30, azim = 60)
-            # # # ax.plot_surface(self.X, self.Y, u.reshape(self.N_y, self.N_x), cmap = 'seismic', edgecolor = 'none')
+            # # # # ax = plt.axes(projection = '3d')
+            # # # # ax.grid(False)
+            # # # # ax.view_init(elev = 30, azim = 60)
+            # # # # ax.plot_surface(self.X, self.Y, u.reshape(self.N_y, self.N_x), cmap = 'seismic', edgecolor = 'none')
 
-            # plt.colorbar()
-            # plt.pause(0.5)
-            # plt.clf()
+            plt.colorbar()
+            plt.pause(0.5)
+            plt.clf()
 
             ############# --------------------- ##############
             
@@ -309,8 +313,7 @@ class Integrate(initial_distribution):
             
             ############## --------------------- ##############
             
-            ###! Compute the matrix exponentials for the mu-mode interator
-            ###! only at the first and last time steps
+            ###! Compute the matrix exponentials for the mu-mode interator only at the first and last time steps
             
             if (time_steps == 0 or self.dt != dt_array[0]) and integrator == "mu_mode":
                     
@@ -354,9 +357,9 @@ class Integrate(initial_distribution):
             # np.savetxt(file_movie, u.reshape(self.N_y, self.N_x), fmt = '%.25f')
             # file_movie.close()
 
-        ############## --------------------- ##############
+            ############## --------------------- ##############
             
-        ### Stop timer
+        ###? Stop timer
         tol_time = datetime.now() - tolTime
 
         print("\n----------------------------")
@@ -375,7 +378,7 @@ class Integrate(initial_distribution):
         max_t = '{:1.2f}'.format(self.tmax)
         emax = '{:5.1e}'.format(self.error_tol)
         
-        direc_1 = os.path.expanduser("../AniDiff_Data/Spiral_2/TDS/" + str(integrator))
+        direc_1 = os.path.expanduser("../AniDiff_Data/" + self.case + "/"  + str(integrator))
         direc_2 = os.path.expanduser(direc_1 + "/N_" + str(n_x) + "/T_" + str(max_t))
         path = os.path.expanduser(direc_2 + "/dt_" + str(dt_value) + "_CFL/tol " + str(emax) + "/")
         

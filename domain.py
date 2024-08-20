@@ -13,7 +13,7 @@ from scipy.sparse import lil_matrix, kron, identity, diags
 
 class Computational_Domain_2D:
 
-    def __init__(self, N_x, N_y, tmax, N_cfl, error_tol):
+    def __init__(self, N_x, N_y, tmax, N_cfl, error_tol, case):
         self.N_x = int(N_x)                         # Number of points along X
         self.N_y = int(N_y)                         # Number of points along Y
         self.xmin = -1                              # Min value of X
@@ -24,6 +24,8 @@ class Computational_Domain_2D:
         self.tmax = tmax                            # Simulation time
         self.N_cfl = N_cfl                          # "N" times CFL limit
         self.error_tol = error_tol                  # Maximum error permitted
+
+        self.case = case                            # Problem: B field configuration
         
         self.initialize_spatial_domain()
         self.initialize_parameters()
@@ -33,8 +35,8 @@ class Computational_Domain_2D:
     def initialize_spatial_domain(self):
 
 		###? Periodic boundary conditions
-        self.X = np.linspace(self.xmin, self.xmax, self.N_x)
-        self.Y = np.linspace(self.ymin, self.ymax, self.N_y)
+        self.X = np.linspace(self.xmin, self.xmax, self.N_x, endpoint=False)
+        self.Y = np.linspace(self.ymin, self.ymax, self.N_y, endpoint=False)
 
         self.dx = self.X[2] - self.X[1]
         self.dy = self.Y[2] - self.Y[1]
@@ -44,19 +46,39 @@ class Computational_Domain_2D:
 
     def initialize_parameters(self):
 
-        ###! ------------------------------------- !###
+        ###? ------------------------------------- ?###
 
         ###! Anisotropic Diffusion Coefficients
         
-        # self.D_x = np.ones((self.N_x, self.N_y))
-        # self.D_y = 0.5*np.ones((self.N_x, self.N_y))
+        if self.case == "2D Band":
+            
+            self.D_x = 1.0
+            self.D_y = 0.5
 
-        self.D_x = self.X + self.Y
-        self.D_y = -self.X
-        
-        ###? Ring: (self.Y, -self.X); Spiral: ((self.X + 4*self.Y), -self.X)
+        elif self.case == "1D Band":
+            
+            self.D_x = 1.0
+            self.D_y = 0.0
 
-        ###! ------------------------------------- !###
+        elif self.case == "Ring":
+            
+            self.D_x =  self.Y
+            self.D_y = -self.X
+
+        elif self.case == "Spiral 1":
+
+            self.D_x =  self.X + 4*self.Y
+            self.D_y = -self.X
+
+        elif self.case == "Spiral 2":
+
+            self.D_x =  self.X + self.Y
+            self.D_y = -self.X
+
+        else:
+            print("Incorrect case!")
+
+        ###? ------------------------------------- ?###
         
         ###? Advection velocity
         self.velocity_x = 0.1
@@ -74,6 +96,7 @@ class Computational_Domain_2D:
         print("Adv CFL time     : {:e}".format(self.adv_cfl))
         print("N times CFL      :", self.N_cfl)
         print("Tolerance        :", self.error_tol)
+        print("Simulation time  :", self.tmax)
         print()
         
 
@@ -83,32 +106,44 @@ class Computational_Domain_2D:
         self.Dif_xx = lil_matrix(diags(np.ones(self.N_x - 1), -1) + diags(-2*np.ones(self.N_x), 0) + diags(np.ones(self.N_x - 1), 1))
         self.Dif_yy = lil_matrix(diags(np.ones(self.N_y - 1), -1) + diags(-2*np.ones(self.N_y), 0) + diags(np.ones(self.N_y - 1), 1))
         
-        self.Dif_x  = lil_matrix(diags(0.5*np.ones(self.N_x - 1), 1) + diags(-0.5*np.ones(self.N_x - 1), -1))
-        self.Dif_y  = lil_matrix(diags(0.5*np.ones(self.N_y - 1), 1) + diags(-0.5*np.ones(self.N_y - 1), -1))
-        
-        ###? Boundary conditions (Periodic)
-        # Diagonal terms
-        # self.Dif_xx[0, -1] = 1; self.Dif_xx[-1, 0] = 1      # (0, -1), (N-1, 0)
-        # self.Dif_yy[0, -1] = 1; self.Dif_yy[-1, 0] = 1      # (0, -1), (N-1, 0)
-        
-        ## Off-diagonal terms
-        # self.Dif_x[0, -1] = 1; self.Dif_x[-1, 0] = -1       # (0, -1), (N-1, 0)
-        # self.Dif_y[0, -1] = 1; self.Dif_y[-1, 0] = -1       # (0, -1), (N-1, 0)
-        
-        
+        self.Dif_x  = lil_matrix(diags(-1/2*np.ones(self.N_x - 1), 1) + diags(1/2*np.ones(self.N_x - 1), -1))
+        self.Dif_y  = lil_matrix(diags(-1/2*np.ones(self.N_y - 1), 1) + diags(1/2*np.ones(self.N_y - 1), -1))
+
+        if self.case == "1D Band" or "2D Band":
+
+            ###? Periodic Boundary conditions - Diagonal terms
+            self.Dif_xx[0, -1] = 1; self.Dif_xx[-1, 0] = 1      # (0, -1), (N-1, 0)
+            self.Dif_yy[0, -1] = 1; self.Dif_yy[-1, 0] = 1      # (0, -1), (N-1, 0)
+            
+            ###? Off-diagonal terms
+            self.Dif_x[0, -1] = 1/2; self.Dif_x[-1, 0] = -1/2       # (0, -1), (N-1, 0)
+            self.Dif_y[0, -1] = 1/2; self.Dif_y[-1, 0] = -1/2       # (0, -1), (N-1, 0)
+
+            ###! 2D Anisotropic Diffusion Matrix
+            self.A_dif = kron(identity(self.N_y), self.D_x*self.Dif_xx/self.dx**2)   \
+                       + kron(self.D_y*self.Dif_yy/self.dy**2, identity(self.N_x))   \
+                       + kron(self.Dif_x*self.D_x, self.Dif_y*self.D_x)/(self.dx*self.dy)     \
+                       + kron(self.Dif_y*self.D_y, self.Dif_x*self.D_x)/(self.dx*self.dy)
+
+        elif self.case == "Ring" or "Spiral 1" or "Spiral 2":
+
+            ###! 2D Anisotropic Diffusion Matrix
+            self.A_dif = kron(identity(self.N_y).multiply((self.D_x**2).diagonal()), self.Dif_xx/self.dx**2)    \
+                       + kron(self.Dif_yy/self.dy**2, identity(self.N_x).multiply((self.D_y**2).diagonal()))    \
+                       + kron(self.Dif_x.multiply(self.D_x), self.Dif_y.multiply(self.D_y))/(self.dx*self.dy)   \
+                       + kron(self.Dif_y.multiply(self.D_y), self.Dif_x.multiply(self.D_x))/(self.dx*self.dy)
+            
+        else:
+            print("Incorrect case!")
+
+
         ###? 3rd order upwind for advection (-2/6, -3/6, 1, -1/6)
         self.Adv_x = lil_matrix(diags(-2/6*np.ones(self.N_x - 1), -1) + diags(-3/6*np.ones(self.N_x), 0) + diags(np.ones(self.N_x - 1), 1) + diags(-1/6*np.ones(self.N_x - 2), 2))
         self.Adv_y = lil_matrix(diags(-2/6*np.ones(self.N_y - 1), -1) + diags(-3/6*np.ones(self.N_y), 0) + diags(np.ones(self.N_y - 1), 1) + diags(-1/6*np.ones(self.N_y - 2), 2))
         
         ###? Boundary conditions (Periodic)
-        # self.Adv_x[-2, 0] = -1/6; self.Adv_x[-1, 0] = 1; self.Adv_x[-1, 1] = -1/6; self.Adv_x[0, -1] = -2/6
-        # self.Adv_y[-2, 0] = -1/6; self.Adv_y[-1, 0] = 1; self.Adv_y[-1, 1] = -1/6; self.Adv_y[0, -1] = -2/6
-
-        ###! 2D Anisotropic Diffusion Matrix
-        self.A_dif = kron(identity(self.N_y).multiply((self.D_x**2).diagonal()), self.Dif_xx/self.dx**2)    \
-                   + kron(self.Dif_yy/self.dy**2, identity(self.N_x).multiply((self.D_y**2).diagonal()))    \
-                   + kron(self.Dif_x.multiply(self.D_x), self.Dif_y.multiply(self.D_y))/(2*self.dx*self.dy) \
-                   + kron(self.Dif_y.multiply(self.D_y), self.Dif_x.multiply(self.D_x))/(2*self.dx*self.dy)
+        self.Adv_x[-2, 0] = -1/6; self.Adv_x[-1, 0] = 1; self.Adv_x[-1, 1] = -1/6; self.Adv_x[0, -1] = -2/6
+        self.Adv_y[-2, 0] = -1/6; self.Adv_y[-1, 0] = 1; self.Adv_y[-1, 1] = -1/6; self.Adv_y[0, -1] = -2/6
 
         ###! 2D Advection Matrix
         self.A_adv = kron(identity(self.N_y), self.Adv_x*self.velocity_x/self.dx) + kron(self.Adv_y*self.velocity_y/self.dy, identity(self.N_x))
