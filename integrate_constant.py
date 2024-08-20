@@ -6,20 +6,20 @@ Created on Wed Dec 3 15:46:29 2021
 Description: Temporal integration
 """
 
-import os, sys, shutil
 import numpy as np
+import os, sys, shutil
 import matplotlib.pyplot as plt
 from scipy.sparse import lil_matrix, kron, identity, diags
 
 from datetime import datetime
 
-### =============================================== ###
-
-### Choose the required initial conditions
+###? Import initial conditions
 # from initial_1 import *       # Ring
 # from initial_2 import *       # Band
 # from initial_3 import *       # Square
-from initial_4 import *       # Gaussian
+# from initial_4 import *       # Gaussian
+
+###? ============================================================================ ?###
 
 ###! Import LeXInt
 sys.path.insert(1, "../LeXInt/Python/")
@@ -37,10 +37,9 @@ from CN import *
 from ARK import *
 from mu_mode import *
 
-### ============================================================================ ###
-### ============================================================================ ###
-    
-class Integrate(initial_distribution):
+###? ============================================================================ ?###
+
+class Integrate(Computational_Domain_2D):
     
     ###! Time-independent sources
     def TIS(self):
@@ -133,7 +132,8 @@ class Integrate(initial_distribution):
         
         return eigen_B * Laplacian_matrix.dot(u)
 
-    ### =============================================== ###
+   
+###? ============================================================================ ?###
     
     def solve_constant(self, integrator, u, substeps, c, Gamma, Leja_X, tol, exp_Axx, exp_Ayy, *args):
         
@@ -150,7 +150,6 @@ class Integrate(initial_distribution):
         
         if integrator == "Leja_exp":
             u_sol, num_rhs_calls, substeps = real_Leja_linear_exp(u, dt, substeps, Jac_vec_dt, 1, c, Gamma, Leja_X, tol)
-            # u_sol, num_rhs_calls = real_Leja_exp(u, dt, self.RHS_function, c, Gamma, Leja_X, tol)
             return u_sol, num_rhs_calls, substeps
 
         elif integrator == "Exponential_TIS":
@@ -220,7 +219,7 @@ class Integrate(initial_distribution):
         else:
             print("Please choose proper integrator.")
 
-    ### ============================================================================ ###
+###? ============================================================================ ?###
 
     def run_code(self, tmax):
 
@@ -236,9 +235,44 @@ class Integrate(initial_distribution):
         time = 0                                                # Time elapsed
         time_steps = 0                                          # Time steps
         
-        ###! Initial condition
-        u = self.initial_u().reshape(self.N_x * self.N_y)     # Reshape 2D into 1D
-        # u = np.ones((self.N_x * self.N_y)) * 1e-5
+        ###! Initial conditions
+        if self.case == "2D Band":
+            
+            ###? Constant diffusion on a periodic band (Crouseilles et al. 2015)
+            radius = (self.X**2 + self.Y**2)**0.5
+            u_init = np.zeros((self.N_x, self.N_y))
+        
+            for ii in range(self.N_x):
+                for jj in range(self.N_y):
+                    if radius[ii, jj] < 2*np.pi/5:    
+                        u_init[ii, jj] = 1.0 + (3*np.exp(-2*radius[ii, jj]**2))
+                    else:
+                        u_init[ii, jj] = 1.0
+
+            u = u_init.reshape(self.N_x * self.N_y)     # Reshape 2D into 1D
+
+        elif self.case == "1D Band":
+            
+            ###? Gaussian pulse (Hopkins 2017)
+            eps = 0.09
+            u_init = (2*np.pi)**(-3/2)/eps**3 * np.exp(-0.5 * ((self.X**2 + self.Y**2)/eps**2))
+            u = u_init.reshape(self.N_x * self.N_y)     # Reshape 2D into 1D
+
+        elif self.case == "Ring":
+
+            u_init = np.exp(-((self.X + 0.6)**2 + self.Y**2)/(0.03))
+            u = u_init.reshape(self.N_x * self.N_y)     # Reshape 2D into 1D
+        
+        elif self.case == "Spiral 1":
+            
+            u = np.ones((self.N_x * self.N_y)) * 1e-5
+        
+        elif self.case == "Spiral 2":
+            
+            u = np.ones((self.N_x * self.N_y)) * 1e-5
+        
+        else:
+            print("Incorrect case!")
         
         ############## --------------------- ##############
         
